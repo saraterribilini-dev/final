@@ -1,0 +1,77 @@
+library(raster)
+library(sf)
+library(rnaturalearth)
+library(ggplot2)
+
+#------------------------------------------------------------------------------
+# 1) LOAD THE EUROPE ECOSYSTEM RASTER DIRECTLY FROM COMPUTER
+#------------------------------------------------------------------------------
+
+file_path <- "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/ecosystem_raster_europe.tif"
+ecosystem_europe <- raster(file_path)
+
+#plot(ecosystem_europe, main = "Ecosystem Raster Restricted to Europe")
+
+#------------------------------------------------------------------------------
+# 2) LOAD SPECIES COORDINATES
+#------------------------------------------------------------------------------
+xmin <- -22
+xmax <- 57
+ymin <- 30
+ymax <- 70
+head(matrix_final)
+
+spatial_points <- SpatialPoints(
+  coords = matrix_final[, c("longitude", "latitude")],
+  proj4string = CRS("+proj=longlat +datum=WGS84")
+)
+quartz()
+plot(ecosystem_europe, main = "Species Occurrences on Ecosystem Map",st_geometry(Europe), xlim = c(-22, 57), ylim = c(30, 70))
+g=plot(spatial_points, add = TRUE, pch = 16, cex = 0.3)
+print(g)
+#------------------------------------------------------------------------------
+# 3) EXTRACT ECOSYSTEM VALUES
+#------------------------------------------------------------------------------
+
+eco_values <- raster::extract(ecosystem_europe, spatial_points)
+head(eco_values)
+
+matrix_full_eco <- data.frame(matrix_final, eco_values)
+head(matrix_full_eco)
+
+#------------------------------------------------------------------------------
+# 4) LOAD METADATA
+#------------------------------------------------------------------------------
+
+metadata_eco <- read.delim("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/WorldEcosystem.metadata.tsv")
+head(metadata_eco)
+
+#------------------------------------------------------------------------------
+# 5) MERGE WITH METADATA
+#------------------------------------------------------------------------------
+
+matrix_full_eco <- merge(
+  matrix_full_eco,
+  metadata_eco,
+  by.x = "eco_values",
+  by.y = "Value"
+)
+
+head(matrix_full_eco)
+
+#------------------------------------------------------------------------------
+# 6) PLOT
+#------------------------------------------------------------------------------
+quartz()
+count <- ggplot(matrix_full_eco, aes(x = Climate_Re, fill = species)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Count of Observations of Each Species by Climate",
+    x = "Climate category",
+    y = "Number of observations"
+  ) +
+  theme_minimal()
+
+print(count)
+
+

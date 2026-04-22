@@ -1,0 +1,132 @@
+################################################################################
+# EXTRACTING ELEVATION DATA IN Europe AND VISUALIZATION
+################################################################################
+
+# =========================
+# 1. Load required packages
+# =========================
+library(sf)        # modern spatial data handling (simple features)
+library(elevatr)   # download elevation data
+library(raster)    # raster data manipulation (maps)
+library(ggplot2)   # data visualization
+library(rnaturalearth)
+
+# Disable s2 geometry engine (can avoid issues in some spatial operations)
+sf_use_s2(FALSE)
+
+
+# =========================
+# 2. Load Europe boundaries
+# =========================
+# Retrieve country borders from Natural Earth
+Europe <- ne_countries(
+  scale = "medium",
+  returnclass = "sf",
+  continent = "Europe"
+)
+
+
+# =========================
+# 3. Download elevation data
+# =========================
+# z controls resolution (higher = more detail but slower)
+#elevation_Europe <- get_elev_raster(Europe, z = 6)
+#elevation_Europe_crop <- crop(elevation_Europe, extent(-22,57,30,70))
+# Quick visualization of the elevation raster
+#plot(elevation_Europe_crop)
+
+#save file
+#library(terra)
+#r<-rast(elevation_Europe_crop)
+#writeRaster(r,"/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/elevation_europe_crop.tif")
+
+# =========================
+# 4. Prepare sampling points
+# =========================
+# We assume your dataset contains:
+# - longitude
+# - latitude
+
+file_path <- "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/elevation_europe_crop.tif"
+elevation_europe <- raster(file_path)
+print(elevation_europe)
+plot(elevation_europe, main = "Elevation Raster Restricted to Europe")
+
+
+# Convert coordinates into a spatial object (SpatialPoints format)
+spatial_points <- SpatialPoints(
+  coords = matrix_full_eco[, c("longitude", "latitude")],
+  proj4string = CRS("+proj=longlat +datum=WGS84")
+)
+
+
+# =========================
+# 5. Extract elevation values
+# =========================
+# Extract raster values at each point location
+elevation <- raster::extract(elevation_europe, spatial_points)
+
+
+# =========================
+# 6. Add elevation to the dataset
+# =========================
+matrix_full_eco_elev <- data.frame(
+  matrix_full_eco,
+  elevation = elevation
+)
+
+# =========================
+# 7. Visualization: elevation distribution
+# =========================
+# Compare elevation distributions across climate categories
+quartz()
+p3 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
+  geom_density(alpha = 0.5, adjust = 3) +  # smoothed density curves
+  labs(
+    title = "Elevation Distribution by Climate",
+    x = "Elevation (m)",
+    y = "Density"
+  ) +
+  theme_minimal()
+
+# Display the plot
+print(p3)
+
+# Visualization of the elevation of the different biomes by species
+quartz()
+p4 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
+  geom_density(alpha = 0.5, adjust = 3) +
+  labs(
+    title = "Elevation distribution by species",
+    x = "Elevation (m)",
+    y = "Density"
+  ) +
+  theme_minimal() +
+  facet_wrap(~ species, scales = "free_y")
+
+print(p4)
+
+quartz()
+p5 <- ggplot(matrix_full_eco_elev, aes(x = elevation, color = species)) +
+  geom_density(adjust = 3) +
+  labs(
+    title = "Elevation distribution by species",
+    x = "Elevation (m)",
+    y = "Density"
+  ) +
+  theme_minimal()
+
+print(p5)
+
+quartz()
+p6 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
+  geom_density(alpha = 0.5, adjust = 3) +
+  labs(
+    title = "Elevation distribution by species and ecosystem",
+    x = "Elevation (m)",
+    y = "Density"
+  ) +
+  theme_minimal() +
+  facet_wrap(~ species)
+
+print(p6)

@@ -1,0 +1,84 @@
+###############################################################################
+# ADD CLIMATE DATA TO AN EXISTING SPECIES COORDINATE TABLE
+# BREEDING SEASON = APRIL TO JULY
+###############################################################################
+
+# =========================
+# 1) PACKAGES
+# =========================
+library(Rchelsa)
+library(terra)
+library(dplyr)
+library(ggplot2)
+
+#CALL THE DF
+matrix_final_climate <- readRDS("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_final_climate.rds")
+head(matrix_final_climate)
+
+# =========================
+# 10) PLOT CURRENT VS FUTURE BREEDING SEASON TEMPERATURE
+# =========================
+quartz()
+clima <- ggplot(
+  matrix_final_climate,
+  aes(x = tas_breeding_current_c, y = tas_breeding_future_2050_c)
+) +
+  geom_point(color = "steelblue", size = 0.8, alpha = 0.25) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  facet_wrap(~ species) +
+  theme_classic() +
+  labs(
+    title = "Current vs future breeding season temperature",
+    x = "Current breeding season temperature (°C)",
+    y = "Future breeding season temperature in 2050 (°C)"
+  )
+print(clima)
+
+# =========================
+# 11) PLOT CURRENT VS FUTURE BREEDING SEASON PRECIPITATION
+# =========================
+quartz()
+precip <- ggplot(
+  matrix_final_climate,
+  aes(x = pr_breeding_current, y = pr_breeding_future_2050)
+) +
+  geom_point(color = "steelblue", size = 0.8, alpha = 0.25) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  facet_wrap(~ species) +
+  theme_classic() +
+  labs(
+    title = "Current vs future breeding season precipitation",
+    x = "Current breeding season precipitation",
+    y = "Future breeding season precipitation in 2050"
+  )
+print(precip)
+
+# =========================
+# 12) PLOT TEMPERATURE CHANGE BY SPECIES
+# =========================
+quartz()
+clima2=ggplot(matrix_final_climate, aes(x = species, y = delta_tas_breeding_c, fill = species)) +
+  geom_boxplot() +
+  theme_classic() +
+  labs(
+    title = "Projected breeding season temperature change by species",
+    x = "Species",
+    y = "Delta breeding season temperature (°C)"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(clima2)
+
+# =========================
+# 13) PLOT PRECIPITATION CHANGE BY SPECIES
+# =========================
+quartz()
+clima3=ggplot(matrix_final_climate, aes(x = species, y = delta_pr_breeding, fill = species)) +
+  geom_boxplot() +
+  theme_classic() +
+  labs(
+    title = "Projected breeding season precipitation change by species",
+    x = "Species",
+    y = "Delta breeding season precipitation"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(clima3)

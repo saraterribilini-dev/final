@@ -1,0 +1,282 @@
+###############################################################################
+# ADD CLIMATE DATA TO AN EXISTING SPECIES COORDINATE TABLE
+# BREEDING SEASON = APRIL TO JULY
+###############################################################################
+
+# =========================
+# 1) PACKAGES
+# =========================
+library(Rchelsa)
+library(terra)
+library(dplyr)
+library(ggplot2)
+
+# =========================
+# 2) STARTING DATASET
+# =========================
+# Add a unique ID
+matrix_final$occurrence_id <- seq_len(nrow(matrix_final))
+
+head(matrix_final)
+
+# =========================
+# 3) CREATE A SPATIAL OBJECT
+# =========================
+pts_v <- terra::vect(
+  matrix_final,
+  geom = c("longitude", "latitude"),
+  crs = "EPSG:4326"
+)
+
+coords_df <- as.data.frame(terra::geom(pts_v)[, c("x", "y")]) %>%
+  rename(
+    longitude = x,
+    latitude = y
+  ) %>%
+  mutate(occurrence_id = matrix_final$occurrence_id)
+
+head(coords_df)
+
+# Keep only unique coordinates to avoid duplicate-column problems in CHELSA
+coords_unique <- coords_df %>%
+  select(longitude, latitude) %>%
+  distinct()
+
+head(coords_unique)
+
+# =========================
+# 4) CURRENT TEMPERATURE
+#    APRIL TO JULY (1981-2010 climatology)
+# =========================
+tas_cur_apr <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = c(4, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+tas_cur_may <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = c(5, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+tas_cur_jun <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = c(6, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+tas_cur_jul <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = c(7, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+apr_vals <- as.numeric(unlist(tas_cur_apr[, colnames(tas_cur_apr) != "time"]))
+may_vals <- as.numeric(unlist(tas_cur_may[, colnames(tas_cur_may) != "time"]))
+jun_vals <- as.numeric(unlist(tas_cur_jun[, colnames(tas_cur_jun) != "time"]))
+jul_vals <- as.numeric(unlist(tas_cur_jul[, colnames(tas_cur_jul) != "time"]))
+
+tas_cur_mat <- cbind(apr_vals, may_vals, jun_vals, jul_vals)
+
+tas_breeding_current_c <- rowMeans(tas_cur_mat, na.rm = TRUE) - 273.15
+
+tas_cur_breeding_df <- data.frame(
+  longitude = coords_unique$longitude,
+  latitude = coords_unique$latitude,
+  tas_breeding_current_c = tas_breeding_current_c
+)
+
+head(tas_cur_breeding_df)
+
+# =========================
+# 5) FUTURE TEMPERATURE
+#    APRIL TO JULY IN 2050 UNDER SSP126
+# =========================
+tas_fut_apr <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = as.Date("2050-04-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+tas_fut_may <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = as.Date("2050-05-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+tas_fut_jun <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = as.Date("2050-06-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+tas_fut_jul <- getChelsa(
+  var     = "tas",
+  coords  = coords_unique,
+  date    = as.Date("2050-07-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+apr_vals_fut <- as.numeric(unlist(tas_fut_apr[, colnames(tas_fut_apr) != "time"]))
+may_vals_fut <- as.numeric(unlist(tas_fut_may[, colnames(tas_fut_may) != "time"]))
+jun_vals_fut <- as.numeric(unlist(tas_fut_jun[, colnames(tas_fut_jun) != "time"]))
+jul_vals_fut <- as.numeric(unlist(tas_fut_jul[, colnames(tas_fut_jul) != "time"]))
+
+tas_fut_mat <- cbind(apr_vals_fut, may_vals_fut, jun_vals_fut, jul_vals_fut)
+
+tas_breeding_future_2050_c <- rowMeans(tas_fut_mat, na.rm = TRUE) - 273.15
+
+tas_fut_breeding_df <- data.frame(
+  longitude = coords_unique$longitude,
+  latitude = coords_unique$latitude,
+  tas_breeding_future_2050_c = tas_breeding_future_2050_c
+)
+
+head(tas_fut_breeding_df)
+
+# =========================
+# 6) CURRENT PRECIPITATION
+#    APRIL TO JULY (1981-2010 climatology)
+# =========================
+pr_cur_apr <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = c(4, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+pr_cur_may <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = c(5, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+pr_cur_jun <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = c(6, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+pr_cur_jul <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = c(7, 1981, 2010),
+  dataset = "chelsa-climatologies"
+)
+
+apr_pr_vals <- as.numeric(unlist(pr_cur_apr[, colnames(pr_cur_apr) != "time"]))
+may_pr_vals <- as.numeric(unlist(pr_cur_may[, colnames(pr_cur_may) != "time"]))
+jun_pr_vals <- as.numeric(unlist(pr_cur_jun[, colnames(pr_cur_jun) != "time"]))
+jul_pr_vals <- as.numeric(unlist(pr_cur_jul[, colnames(pr_cur_jul) != "time"]))
+
+pr_cur_mat <- cbind(apr_pr_vals, may_pr_vals, jun_pr_vals, jul_pr_vals)
+
+pr_breeding_current <- rowMeans(pr_cur_mat, na.rm = TRUE)
+
+pr_cur_breeding_df <- data.frame(
+  longitude = coords_unique$longitude,
+  latitude = coords_unique$latitude,
+  pr_breeding_current = pr_breeding_current
+)
+
+head(pr_cur_breeding_df)
+
+# =========================
+# 7) FUTURE PRECIPITATION
+#    APRIL TO JULY IN 2050 UNDER SSP126
+# =========================
+pr_fut_apr <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = as.Date("2050-04-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+pr_fut_may <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = as.Date("2050-05-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+pr_fut_jun <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = as.Date("2050-06-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+pr_fut_jul <- getChelsa(
+  var     = "pr",
+  coords  = coords_unique,
+  date    = as.Date("2050-07-01"),
+  dataset = "chelsa-climatologies",
+  ssp     = "ssp126",
+  forcing = "MPI-ESM1-2-HR"
+)
+
+apr_pr_vals_fut <- as.numeric(unlist(pr_fut_apr[, colnames(pr_fut_apr) != "time"]))
+may_pr_vals_fut <- as.numeric(unlist(pr_fut_may[, colnames(pr_fut_may) != "time"]))
+jun_pr_vals_fut <- as.numeric(unlist(pr_fut_jun[, colnames(pr_fut_jun) != "time"]))
+jul_pr_vals_fut <- as.numeric(unlist(pr_fut_jul[, colnames(pr_fut_jul) != "time"]))
+
+pr_fut_mat <- cbind(apr_pr_vals_fut, may_pr_vals_fut, jun_pr_vals_fut, jul_pr_vals_fut)
+
+pr_breeding_future_2050 <- rowMeans(pr_fut_mat, na.rm = TRUE)
+
+pr_fut_breeding_df <- data.frame(
+  longitude = coords_unique$longitude,
+  latitude = coords_unique$latitude,
+  pr_breeding_future_2050 = pr_breeding_future_2050
+)
+
+head(pr_fut_breeding_df)
+
+# =========================
+# 8) JOIN ALL CLIMATE DATA TO THE ORIGINAL TABLE
+# =========================
+matrix_final_climate <- matrix_final %>%
+  left_join(tas_cur_breeding_df, by = c("longitude", "latitude")) %>%
+  left_join(tas_fut_breeding_df, by = c("longitude", "latitude")) %>%
+  left_join(pr_cur_breeding_df, by = c("longitude", "latitude")) %>%
+  left_join(pr_fut_breeding_df, by = c("longitude", "latitude")) %>%
+  mutate(
+    delta_tas_breeding_c = tas_breeding_future_2050_c - tas_breeding_current_c,
+    delta_pr_breeding = pr_breeding_future_2050 - pr_breeding_current
+  )
+
+head(matrix_final_climate)
+
+# =========================
+# 9) CHECK THE RESULT
+# =========================
+dim(matrix_final)
+dim(matrix_final_climate)
+names(matrix_final_climate)
+
+# SAVE the dataframe 
+saveRDS(matrix_final_climate, "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_final_climate.rds" )

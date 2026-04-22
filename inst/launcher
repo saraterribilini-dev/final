@@ -1,0 +1,9 @@
+source("./my project/src/data_cuculus.r")
+source("./my project/src/data_prunella.r")
+source("./my project/src/data_Acrocephalus.r")
+ 
+source("./my project/src/ecosystem")
+source("./my project/src/elevation")
+source("./my project/src/climate")
+## manca la parte dei satelliti
+
