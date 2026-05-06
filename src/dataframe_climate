@@ -279,4 +279,4 @@ dim(matrix_final_climate)
 names(matrix_final_climate)
 
 # SAVE the dataframe 
-saveRDS(matrix_final_climate, "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_final_climate.rds" )
+#saveRDS(matrix_final_climate, "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_final_climate.rds" )

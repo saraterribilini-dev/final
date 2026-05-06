@@ -1,9 +1,10 @@
-source("./my project/src/data_cuculus.r")
-source("./my project/src/data_prunella.r")
-source("./my project/src/data_Acrocephalus.r")
+getwd()
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_cuculus.r")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_prunella.r")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_Acrocephalus.r")
  
-source("./my project/src/ecosystem")
-source("./my project/src/elevation")
-source("./my project/src/climate")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/ecosystem")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/elevation")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/climate")
 ## manca la parte dei satelliti
 

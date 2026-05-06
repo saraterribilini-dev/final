@@ -70,7 +70,8 @@ names(gbif_occ)
 
 # Select occurrences located in Europe
 gbif_Europe <- gbif_occ %>%
-  filter(continent == "EUROPE") #europe in maiuscolo
+  filter(continent == "EUROPE") %>%
+  filter(species == myspecies) #to have only my sp.
 
 # Check number of records
 nrow(gbif_Europe)
@@ -98,7 +99,9 @@ g1 <- ggplot(data = Europe) +
     color = "black"
   ) +
   theme_classic() + xlim(xmin,xmax) + ylim(ymin,ymax) +
-  labs(title = "GBIF occurrences of Acrocephalus scirpaceus")
+  labs(title = "GBIF occurrences of Acrocephalus scirpaceus")+
+  xlab("Longitude")+
+  ylab("Latitude")
 
 print(g1)
 ###############################################################################
@@ -108,7 +111,7 @@ print(g1)
 # Keep only the useful columns
 # eventDate may contain date + time; as.Date() keeps only the date
 data_gbif <- data.frame(
-  species   = gbif_Europe$species,
+  species   = myspecies,
   latitude  = gbif_Europe$decimalLatitude,
   longitude = gbif_Europe$decimalLongitude,
   date_obs  = as.Date(gbif_Europe$eventDate),
@@ -152,14 +155,17 @@ print(g2)
 ###############################################################################
 # 7) FORMAT iNaturalist DATA
 ###############################################################################
+inat_clean <- inat_raw %>%
+  filter(!is.na(scientific_name)) %>%
+  filter(grepl("^Acrocephalus scirpaceus( |$)", scientific_name)) # I keep the subspecies 
 
 # In most rinat versions the observation date is stored in observed_on
 # Convert it to Date format
 data_inat <- data.frame(
-  species   = inat_raw$scientific_name,
-  latitude  = inat_raw$latitude,
-  longitude = inat_raw$longitude,
-  date_obs  = as.Date(inat_raw$observed_on),
+  species   = myspecies,
+  latitude  = inat_clean$latitude,
+  longitude = inat_clean$longitude,
+  date_obs  = as.Date(inat_clean$observed_on),
   source    = "inat"
 )
 
@@ -218,16 +224,5 @@ print(l3)
 matrix_int <- bind_rows(matrix_full_date_sp1, matrix_full_date_sp2)
 matrix_final <- bind_rows(matrix_int, matrix_full_date_sp3)
 
-## correction
-table(matrix_final$species)
-matrix_final <- subset(
-  matrix_final,
-  !(species %in% c(
-    "Turdus merula",
-    "Prunella modularis modularis",
-    "Cuculus canorus canorus",
-    "Acrocephalus scirpaceus scirpaceus",
-    "Prunella modularis occidentalis"
-  )))
 
 table(matrix_final$species)

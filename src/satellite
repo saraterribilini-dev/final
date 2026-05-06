@@ -51,7 +51,7 @@ MODIStsp_get_prodlayers("M*D13Q1")
 product <- "MOD09A1" #surface spectral reflectance of Terra
 #product <- "MOD13Q1" # NDVI
 
-productInfo(product)
+#productInfo(product)
 
 
 # IMPORTANT:
@@ -75,13 +75,19 @@ xmin <- -22
 xmax <- 57
 ymin <- 30
 ymax <- 70
-st_write(
+
+Europe_sf_crop <- st_crop(
   Europe_sf,
-  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/europe.geojson",
+  xmin = xmin,
+  xmax = xmax,
+  ymin = ymin,
+  ymax = ymax
+)
+st_write(
+  Europe_sf_crop,
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/europe.geojson",
   delete_dsn = TRUE
 )
-
-plot(st_geometry(Europe_sf), col = "lightgray", main = "Europe")
 
 # ------------------------------------------------------------------------------
 # MANUAL STEP IN APP EEARS

@@ -50,7 +50,7 @@ Europe <- ne_countries(
 file_path <- "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/elevation_europe_crop.tif"
 elevation_europe <- raster(file_path)
 print(elevation_europe)
-plot(elevation_europe, main = "Elevation Raster Restricted to Europe")
+#plot(elevation_europe, main = "Elevation Raster Restricted to Europe")
 
 
 # Convert coordinates into a spatial object (SpatialPoints format)
