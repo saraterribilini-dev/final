@@ -1,0 +1,527 @@
+###############################################################################
+# ANALYSIS OF FINAL BIODIVERSITY DATASET
+# Species: Cuculus canorus, Prunella modularis, Acrocephalus scirpaceus
+#
+# Aim:
+# 1. Explore environmental differences among species
+# 2. Compare ecosystem and climate-region use
+# 3. Analyse exposure to projected climate change
+# 4. Use Random Forest to identify the most important predictors
+###############################################################################
+
+
+###############################################################################
+# 0) PACKAGES
+###############################################################################
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(forcats)
+library(randomForest)
+library(caret)
+library(viridis)
+library(rnaturalearth)
+library(sf)
+
+sf_use_s2(FALSE)
+
+###############################################################################
+# 1) LOAD FINAL DATASET
+###############################################################################
+
+# Load the final dataset created in the previous script.
+# This dataset already contains:
+# - species occurrence data
+# - ecosystem information
+# - elevation
+# - NDVI
+# - current and future climate variables
+
+getwd()
+df <- read.csv("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/matrix_full_eco_elev_clim_sat.csv")
+
+#check
+head(df)
+str(df)
+names(df)
+
+# Number of observations per species
+table(df$species)
+
+###############################################################################
+# 2) CLEAN AND PREPARE DATA
+###############################################################################
+
+# Keep only the columns that are biologically useful for the analysis.
+# I avoid using too many highly detailed ecosystem labels because they can make
+# the Random Forest harder to interpret.
+
+analysis_df <- df %>%
+  select(
+    species,
+    source,
+    latitude,
+    longitude,
+    elevation,
+    NDVI,
+    tas_breeding_current_c,
+    tas_breeding_future_2050_c,
+    delta_tas_breeding_c,
+    pr_breeding_current,
+    pr_breeding_future_2050,
+    delta_pr_breeding,
+    eco_values,
+    Temperatur,
+    Moisture,
+    Landcover,
+    Landforms,
+    Climate_Re)
+
+# Convert categorical variables to factors
+analysis_df <- analysis_df %>%
+  mutate(
+    species = as.factor(species),
+    source = as.factor(source),
+    Temperatur = as.factor(Temperatur),
+    Moisture = as.factor(Moisture),
+    Landcover = as.factor(Landcover),
+    Landforms = as.factor(Landforms),
+    Climate_Re = as.factor(Climate_Re),
+    eco_values = as.factor(eco_values)
+  )
+
+# Final check
+str(analysis_df)
+table(analysis_df$species)
+
+###############################################################################
+# 3) MAP OF OCCURRENCE POINTS
+###############################################################################
+
+# This is the first validation figure.
+# It checks whether the occurrence points are geographically coherent and whether
+# all three species have enough spatial coverage.
+
+# Load Europe map
+Europe_sf <- ne_countries(
+  scale = "medium",
+  continent = "Europe",
+  returnclass = "sf"
+)
+
+xmin <- -22
+xmax <- 57
+ymin <- 30
+ymax <- 70
+
+quartz()
+p_map= ggplot(data = Europe_sf) +
+  geom_sf(fill = "grey95", color = "black") +
+  geom_point(
+    data = analysis_df,
+    aes(x = longitude, y = latitude,color = species ),
+    size = 0.8,
+    shape = 21,
+  ) +
+  theme_classic() + xlim(xmin,xmax) + ylim(ymin,ymax)+ 
+  labs(
+    title = "Occurrence points of the three bird species in Europe",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Species"
+  )
+print(p_map)
+
+###############################################################################
+# 4) ENVIRONMENTAL DISTRIBUTION BY SPECIES
+###############################################################################
+
+# This plot compares the main continuous environmental variables among species.
+# It is relevant because it shows whether the three species occur under different
+# environmental conditions, such as different elevation, NDVI, temperature or precipitation.
+
+env_long <- analysis_df %>%
+  select(
+    species,
+    elevation,
+    NDVI,
+    tas_breeding_current_c,
+    pr_breeding_current
+  ) %>%
+  pivot_longer(
+    cols = c(
+      elevation,
+      NDVI,
+      tas_breeding_current_c,
+      pr_breeding_current
+    ),
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  filter(!is.na(value))
+
+quartz()
+
+p_env <- ggplot(env_long, aes(x = species, y = value, fill = species)) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  facet_wrap(~ variable, scales = "free_y") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Environmental conditions at occurrence points",
+    x = "Species",
+    y = "Value"
+  )
+
+print(p_env)
+
+###############################################################################
+# 4) ENVIRONMENTAL DISTRIBUTION BY SPECIES
+###############################################################################
+
+# This plot compares the main continuous environmental variables among species.
+# It is relevant because it shows whether the three species occur under different
+# environmental conditions, such as elevation, NDVI, temperature or precipitation.
+
+# First, make sure that the environmental variables are numeric.
+# This is important because sometimes read.csv() imports numbers as characters.
+analysis_df_plot <- analysis_df %>%
+  mutate(
+    elevation = as.numeric(elevation),
+    NDVI = as.numeric(NDVI),
+    tas_breeding_current_c = as.numeric(tas_breeding_current_c),
+    pr_breeding_current = as.numeric(pr_breeding_current)
+  )
+
+# Transform the dataset from wide to long format.
+# This allows plotting several environmental variables in the same figure.
+env_long <- analysis_df_plot %>%
+  select(
+    species,
+    elevation,
+    NDVI,
+    tas_breeding_current_c,
+    pr_breeding_current
+  ) %>%
+  pivot_longer(
+    cols = c(
+      elevation,
+      NDVI,
+      tas_breeding_current_c,
+      pr_breeding_current
+    ),
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  filter(!is.na(value)) %>%
+  filter(is.finite(value))
+
+# Rename variables for cleaner plot labels
+env_long$variable <- factor(
+  env_long$variable,
+  levels = c(
+    "elevation",
+    "NDVI",
+    "tas_breeding_current_c",
+    "pr_breeding_current"
+  ),
+  labels = c(
+    "Elevation",
+    "NDVI",
+    "Current breeding-season temperature",
+    "Current breeding-season precipitation"
+  )
+)
+
+# Plot
+p_env <- ggplot(env_long, aes(x = species, y = value, fill = species)) +
+  geom_boxplot(outlier.alpha = 0.2, na.rm = TRUE) +
+  facet_wrap(~ variable, scales = "free_y") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Environmental conditions at occurrence points",
+    x = "Species",
+    y = "Value"
+  )
+
+print(p_env)
+
+###############################################################################
+# 5) ELEVATION DISTRIBUTION BY SPECIES
+###############################################################################
+
+# This plot focuses only on elevation.
+# It is relevant because elevation is often a strong ecological gradient and can
+# help explain differences in species distribution.
+
+quartz()
+
+p_elevation <- ggplot(analysis_df, aes(x = elevation, fill = species, color = species)) +
+  geom_density(alpha = 0.3, adjust = 2, na.rm = TRUE) +
+  theme_classic() +
+  labs(
+    title = "Elevation distribution by species",
+    x = "Elevation (m)",
+    y = "Density",
+    fill = "Species",
+    color = "Species"
+  )
+
+print(p_elevation)
+
+###############################################################################
+# 6) NDVI DISTRIBUTION BY SPECIES
+###############################################################################
+
+# NDVI describes vegetation greenness/productivity.
+# This is relevant because the species may be associated with different levels of
+# vegetation cover or habitat productivity.
+
+quartz()
+
+p_ndvi <- ggplot(analysis_df, aes(x = NDVI, fill = species, color = species)) +
+  geom_density(alpha = 0.3, adjust = 2, na.rm = TRUE) +
+  theme_classic() +
+  labs(
+    title = "NDVI distribution by species",
+    x = "NDVI",
+    y = "Density",
+    fill = "Species",
+    color = "Species"
+  )
+
+print(p_ndvi)
+
+###############################################################################
+# 7) CURRENT BREEDING SEASON TEMPERATURE BY SPECIES
+###############################################################################
+
+# This plot compares the current breeding-season temperature at occurrence points.
+# It is relevant because breeding-season temperature can influence habitat suitability,
+# reproduction timing and species distribution.
+
+quartz()
+
+p_temp <- ggplot(
+  analysis_df,
+  aes(x = species, y = tas_breeding_current_c, fill = species)
+) +
+  geom_boxplot(outlier.alpha = 0.2, na.rm = TRUE) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Current breeding-season temperature by species",
+    x = "Species",
+    y = "Current breeding-season temperature (°C)"
+  )
+
+print(p_temp)
+
+###############################################################################
+# 8) CURRENT BREEDING SEASON PRECIPITATION BY SPECIES
+###############################################################################
+
+# This plot compares current breeding-season precipitation at occurrence points.
+# It is relevant because precipitation affects vegetation, food availability and
+# breeding habitat conditions.
+
+quartz()
+
+p_precip <- ggplot(
+  analysis_df,
+  aes(x = species, y = pr_breeding_current, fill = species)
+) +
+  geom_boxplot(outlier.alpha = 0.2, na.rm = TRUE) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Current breeding-season precipitation by species",
+    x = "Species",
+    y = "Current breeding-season precipitation"
+  )
+
+print(p_precip)
+
+###############################################################################
+# 9) CLIMATE REGION USE BY SPECIES
+###############################################################################
+
+# This plot shows the proportion of records of each species in each climate region.
+# Proportions are better than raw counts because the three species may have
+# different total numbers of observations.
+
+climate_prop <- analysis_df %>%
+  filter(!is.na(Climate_Re)) %>%
+  count(species, Climate_Re) %>%
+  group_by(species) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+quartz()
+
+p_climate <- ggplot(climate_prop, aes(x = Climate_Re, y = prop, fill = species)) +
+  geom_col(position = "dodge") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  labs(
+    title = "Proportion of occurrences in each climate region",
+    x = "Climate region",
+    y = "Proportion of species records",
+    fill = "Species"
+  )
+
+print(p_climate)
+
+###############################################################################
+# 10) LANDCOVER USE BY SPECIES
+###############################################################################
+
+# This plot shows the proportion of records of each species in each landcover type.
+# It is relevant because landcover is a proxy for habitat type.
+
+landcover_prop <- analysis_df %>%
+  filter(!is.na(Landcover)) %>%
+  count(species, Landcover) %>%
+  group_by(species) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+quartz()
+
+p_landcover <- ggplot(landcover_prop, aes(x = Landcover, y = prop, fill = species)) +
+  geom_col(position = "dodge") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  labs(
+    title = "Proportion of occurrences in each landcover type",
+    x = "Landcover",
+    y = "Proportion of species records",
+    fill = "Species"
+  )
+
+print(p_landcover)
+###############################################################################
+# 11) PROJECTED TEMPERATURE CHANGE BY SPECIES
+###############################################################################
+
+# This plot shows projected warming at the current occurrence locations.
+# It does not predict future species distribution, but it shows which species
+# currently occur in areas expected to warm more strongly by 2050.
+
+quartz()
+
+p_delta_temp <- ggplot(
+  analysis_df,
+  aes(x = species, y = delta_tas_breeding_c, fill = species)
+) +
+  geom_boxplot(outlier.alpha = 0.2, na.rm = TRUE) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Projected breeding-season temperature change by species",
+    x = "Species",
+    y = "Temperature change by 2050 (°C)"
+  )
+
+print(p_delta_temp)
+
+###############################################################################
+# 12) PROJECTED PRECIPITATION CHANGE BY SPECIES
+###############################################################################
+
+# This plot shows projected precipitation change at the current occurrence locations.
+# It is relevant because changes in breeding-season precipitation may affect
+# vegetation structure, food availability and breeding habitat.
+
+quartz()
+
+p_delta_precip <- ggplot(
+  analysis_df,
+  aes(x = species, y = delta_pr_breeding, fill = species)
+) +
+  geom_boxplot(outlier.alpha = 0.2, na.rm = TRUE) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Projected breeding-season precipitation change by species",
+    x = "Species",
+    y = "Precipitation change by 2050"
+  )
+
+print(p_delta_precip)
+###############################################################################
+# 13) CURRENT VS FUTURE TEMPERATURE
+###############################################################################
+
+# This plot compares current and future breeding-season temperature.
+# Points above the dashed line indicate locations where temperature is projected
+# to increase by 2050.
+
+quartz()
+
+p_temp_future <- ggplot(
+  analysis_df,
+  aes(x = tas_breeding_current_c, y = tas_breeding_future_2050_c)
+) +
+  geom_point(aes(color = species), size = 0.8, alpha = 0.4, na.rm = TRUE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  facet_wrap(~ species) +
+  theme_classic() +
+  labs(
+    title = "Current vs future breeding-season temperature",
+    x = "Current breeding-season temperature (°C)",
+    y = "Future breeding-season temperature in 2050 (°C)",
+    color = "Species"
+  )
+
+print(p_temp_future)
+###############################################################################
+# 14) CURRENT VS FUTURE PRECIPITATION
+###############################################################################
+
+# This plot compares current and future breeding-season precipitation.
+# Points above the dashed line indicate locations where precipitation is projected
+# to increase by 2050.
+
+quartz()
+
+p_precip_future <- ggplot(
+  analysis_df,
+  aes(x = pr_breeding_current, y = pr_breeding_future_2050)
+) +
+  geom_point(aes(color = species), size = 0.8, alpha = 0.4, na.rm = TRUE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  facet_wrap(~ species) +
+  theme_classic() +
+  labs(
+    title = "Current vs future breeding-season precipitation",
+    x = "Current breeding-season precipitation",
+    y = "Future breeding-season precipitation in 2050",
+    color = "Species"
+  )
+
+print(p_precip_future)

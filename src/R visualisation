@@ -1,0 +1,193 @@
+# ============================================================
+#  WORKSHOP – DATA VISUALIZATION IN R
+#  Data: Cardamine observations in Switzerland
+#
+#  Outline:
+#    1. Load the data
+#    2. Plot A – Map
+#    3. Plot B – Radar chart
+#    4. Plot C – Boxplot
+#    5. Plot D – Scatter plot
+#    6. Combine the plots with cowplot (ggdraw)
+# ============================================================
+
+
+# ---- Packages ----
+# Install only once if needed:
+# install.packages(c("ggplot2","dplyr","sf","terra","rnaturalearth",
+#                    "rnaturalearthdata","ggnewscale","fmsb","cowplot"))
+
+library(ggplot2)
+library(dplyr)
+library(sf)
+library(terra)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggnewscale)
+#install.packages("ggnewscale")
+#install.packages("fmsb")
+library(cowplot)
+
+sf_use_s2(FALSE)
+
+# ---- Working directory and files ----
+
+
+df  <- read.csv("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/matrix_full_eco_elev_clim_sat_clean.csv", stringsAsFactors = FALSE)
+# Print a quick summary of the dataset dimensions
+cat(nrow(df), "lignes,", ncol(df), "colonnes\n")
+# Show the first rows to check that the import worked correctly
+colnames(df)
+quartz()
+
+# # ============================================================
+#  PLOT A – MAP OF EUROPE
+#  Background colored by ecosystem type (WTE) + points by species
+# ============================================================
+
+# -- Europe borders --
+europe_sf <- ne_countries(
+  continent = "Europe",
+  scale = "medium",
+  returnclass = "sf"
+)
+
+# -- WTE raster: load it, crop it to Europe, and convert it to a table --
+wte <- terra::rast(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/WorldEcosystem.tif"
+)
+
+# Crop first using the simplified European extent
+europe_xmin <- -22
+europe_xmax <- 57
+europe_ymin <- 30
+europe_ymax <- 70
+
+europe_extent <- terra::ext(
+  europe_xmin,
+  europe_xmax,
+  europe_ymin,
+  europe_ymax
+)
+
+wte_europe <- terra::crop(wte, europe_extent)
+
+# Then mask using the Europe polygon
+wte_europe <- terra::mask(wte_europe, terra::vect(europe_sf))
+
+#my raster is too heavy to create a df for the whole Europe:
+# Reduce raster resolution before converting to dataframe
+# I don't know why but I had planty of problem to reduce the resolution
+wte_europe_lowres <- terra::spatSample(
+  wte_europe,
+  size = 200000,
+  method = "regular",
+  as.raster = TRUE
+)
+
+wte_df <- as.data.frame(wte_europe_lowres, xy = TRUE, na.rm = TRUE)
+colnames(wte_df) <- c("x", "y", "Value")
+
+wte_df$Value <- as.numeric(wte_df$Value)
+
+# -- Add climate color column ----
+
+climate_levels <- sort(unique(na.omit(df$Climate_Re)))
+
+climate_palette <- setNames(
+  hcl.colors(length(climate_levels), palette = "Dark 3"),
+  climate_levels
+)
+
+df$climate_color <- climate_palette[df$Climate_Re]
+
+df %>%
+  dplyr::select(Climate_Re, climate_color) %>%
+  distinct()
+
+# -- Color palette for ecosystem types --
+# I had a colum with color based on the climate
+# Add one color for each climate category
+climate_levels <- sort(unique(na.omit(df$Climate_Re)))
+
+climate_palette <- setNames(
+  hcl.colors(length(climate_levels), palette = "Dark 3"),
+  climate_levels
+)
+
+df$climate_color <- climate_palette[df$Climate_Re]
+
+palette_wte <- df %>%
+  dplyr::select(Value = eco_values, W_Ecosystm, climate_color) %>%
+  distinct()
+
+pal_wte <- setNames(palette_wte$climate_color, palette_wte$W_Ecosystm)
+
+# Join ecosystem names and colors to the raster table
+wte_df <- left_join(wte_df, palette_wte, by = "Value")
+wte_df$W_Ecosystm <- factor(wte_df$W_Ecosystm, levels = names(pal_wte))
+
+# -- Points --
+set.seed(42)
+
+pts_sf <- st_as_sf(
+  df,
+  coords = c("longitude", "latitude"),
+  crs = 4326
+)
+
+
+# -- Build the plot --
+quartz()
+graphA <- ggplot() +
+
+  # WTE raster background
+  geom_tile(
+    data = wte_df,
+    aes(x = x, y = y, fill = W_Ecosystm)
+  ) +
+  scale_fill_manual(values = pal_wte, guide = "none") +
+
+  new_scale_fill() +
+
+  # Observation points
+  geom_sf(
+    data = pts_sf,
+    aes(fill = species, shape = species),
+    size = 2.5,
+    color = "white",
+    stroke = 0.3
+  ) +
+  scale_fill_manual(
+    values = c(
+      "Cuculus canorus" = "#1d3557",
+      "Prunella modularis"      = "#e63946",
+      "Acrocephalus scirpaceus" = "#2a9d8f" ),
+    guide = "none"
+  ) +
+  scale_shape_manual(values = c( "Cuculus canorus" = 21, "Prunella modularis" = 24, "Acrocephalus scirpaceus" = 22), guide = "none") +
+
+  # Europe outline
+  geom_sf(
+    data = europe_sf,
+    fill = NA,
+    color = "grey30",
+    linewidth = 0.4
+  ) +
+
+  # European geographic extent
+  coord_sf(
+  xlim = c(europe_xmin, europe_xmax),
+  ylim = c(europe_ymin, europe_ymax),
+  expand = FALSE) +
+
+  labs(
+    title = "A. Localisation des observations en Europe"
+  ) +
+
+  theme_void() +
+  theme(
+    plot.title = element_text(face = "bold", size = 10)
+  )
+
+print(graphA)

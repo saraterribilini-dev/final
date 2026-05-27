@@ -3,6 +3,21 @@
 # BREEDING SEASON = APRIL TO JULY
 ###############################################################################
 
+
+# This script prepares the climate dataframe that will be used in the script named "climate"
+#Starting from the final occurrence table of the three species,
+# it extracts current and future temperature/precipitation values from CHELSA
+# for the breeding season, defined here as April to July.
+
+
+# The final output is matrix_final_climate, which contains:
+# - species occurrence information
+# - current breeding-season temperature
+# - future breeding-season temperature under SSP126 in 2050
+# - current breeding-season precipitation
+# - future breeding-season precipitation under SSP126 in 2050
+# - projected climate change values for temperature and precipitation
+
 # =========================
 # 1) PACKAGES
 # =========================
@@ -17,17 +32,21 @@ library(ggplot2)
 # Add a unique ID
 matrix_final$occurrence_id <- seq_len(nrow(matrix_final))
 
+#check
 head(matrix_final)
 
 # =========================
 # 3) CREATE A SPATIAL OBJECT
 # =========================
+# Convert the occurrence table into a terra spatial vector object
 pts_v <- terra::vect(
   matrix_final,
   geom = c("longitude", "latitude"),
-  crs = "EPSG:4326"
-)
+  crs = "EPSG:4326")
 
+# Extract the coordinates from the spatial object and convert them back into
+# a regular data frame. This creates a clean coordinate table that can be used
+# as input for CHELSA climate extraction
 coords_df <- as.data.frame(terra::geom(pts_v)[, c("x", "y")]) %>%
   rename(
     longitude = x,
@@ -35,6 +54,7 @@ coords_df <- as.data.frame(terra::geom(pts_v)[, c("x", "y")]) %>%
   ) %>%
   mutate(occurrence_id = matrix_final$occurrence_id)
 
+#check
 head(coords_df)
 
 # Keep only unique coordinates to avoid duplicate-column problems in CHELSA
@@ -42,12 +62,20 @@ coords_unique <- coords_df %>%
   select(longitude, latitude) %>%
   distinct()
 
+#check
 head(coords_unique)
 
 # =========================
 # 4) CURRENT TEMPERATURE
 #    APRIL TO JULY (1981-2010 climatology)
 # =========================
+
+# Download current mean air temperature from CHELSA for each month of the breeding season
+#1981-2010 is an average of the last 30 years. Is usefull to describe the typical cliamtic conditions at each occurence location
+# I can't select until 2025, but it's not a big deal since the goal is to characterize the general climatic niche of the species, rather than
+# reconstruct the exact weather conditions at the time of each observation
+
+
 tas_cur_apr <- getChelsa(
   var     = "tas",
   coords  = coords_unique,
@@ -75,28 +103,40 @@ tas_cur_jul <- getChelsa(
   date    = c(7, 1981, 2010),
   dataset = "chelsa-climatologies"
 )
-
+# Extract only the climate values from the CHELSA output, I removed time because is not usefull
 apr_vals <- as.numeric(unlist(tas_cur_apr[, colnames(tas_cur_apr) != "time"]))
 may_vals <- as.numeric(unlist(tas_cur_may[, colnames(tas_cur_may) != "time"]))
 jun_vals <- as.numeric(unlist(tas_cur_jun[, colnames(tas_cur_jun) != "time"]))
 jul_vals <- as.numeric(unlist(tas_cur_jul[, colnames(tas_cur_jul) != "time"]))
 
+# Combine the four monthly temperature vectors into one matrix.
+# Each row represents one coordinate, and each column represents one month
 tas_cur_mat <- cbind(apr_vals, may_vals, jun_vals, jul_vals)
 
+# Calculate the mean breeding-season temperature across April-July.
+# CHELSA temperature is in Kelvin, so 273.15 is subtracted to convert to Celsius
 tas_breeding_current_c <- rowMeans(tas_cur_mat, na.rm = TRUE) - 273.15
 
+# Create a data frame containing current breeding-season temperature for each
+# unique coordinate
 tas_cur_breeding_df <- data.frame(
   longitude = coords_unique$longitude,
   latitude = coords_unique$latitude,
   tas_breeding_current_c = tas_breeding_current_c
 )
 
+#check
 head(tas_cur_breeding_df)
 
 # =========================
 # 5) FUTURE TEMPERATURE
 #    APRIL TO JULY IN 2050 UNDER SSP126
 # =========================
+# Download future mean air temperature from CHELSA for April-July in 2050.
+# By comparing the 2050 projection with the 1981-2010 baseline, we estimate
+# the projected change in breeding-season temperature and precipitation at
+# the occurrence locations
+
 tas_fut_apr <- getChelsa(
   var     = "tas",
   coords  = coords_unique,
@@ -130,30 +170,36 @@ tas_fut_jul <- getChelsa(
   date    = as.Date("2050-07-01"),
   dataset = "chelsa-climatologies",
   ssp     = "ssp126",
-  forcing = "MPI-ESM1-2-HR"
-)
+  forcing = "MPI-ESM1-2-HR")
 
+# Extract future monthly temperature values, excluding the time column.
 apr_vals_fut <- as.numeric(unlist(tas_fut_apr[, colnames(tas_fut_apr) != "time"]))
 may_vals_fut <- as.numeric(unlist(tas_fut_may[, colnames(tas_fut_may) != "time"]))
 jun_vals_fut <- as.numeric(unlist(tas_fut_jun[, colnames(tas_fut_jun) != "time"]))
 jul_vals_fut <- as.numeric(unlist(tas_fut_jul[, colnames(tas_fut_jul) != "time"]))
 
+# Combine future monthly temperature values into one matrix.
 tas_fut_mat <- cbind(apr_vals_fut, may_vals_fut, jun_vals_fut, jul_vals_fut)
 
+# Calculate mean future breeding-season temperature and convert from Kelvin to Celsius
 tas_breeding_future_2050_c <- rowMeans(tas_fut_mat, na.rm = TRUE) - 273.15
 
+# Create a data frame containing future breeding-season temperature for each unique coordinate
 tas_fut_breeding_df <- data.frame(
   longitude = coords_unique$longitude,
   latitude = coords_unique$latitude,
   tas_breeding_future_2050_c = tas_breeding_future_2050_c
 )
 
+#check
 head(tas_fut_breeding_df)
 
 # =========================
 # 6) CURRENT PRECIPITATION
 #    APRIL TO JULY (1981-2010 climatology)
 # =========================
+
+#I'm doing the same thing as before but for the precipitation
 pr_cur_apr <- getChelsa(
   var     = "pr",
   coords  = coords_unique,
@@ -179,8 +225,7 @@ pr_cur_jul <- getChelsa(
   var     = "pr",
   coords  = coords_unique,
   date    = c(7, 1981, 2010),
-  dataset = "chelsa-climatologies"
-)
+  dataset = "chelsa-climatologies")
 
 apr_pr_vals <- as.numeric(unlist(pr_cur_apr[, colnames(pr_cur_apr) != "time"]))
 may_pr_vals <- as.numeric(unlist(pr_cur_may[, colnames(pr_cur_may) != "time"]))
@@ -194,9 +239,9 @@ pr_breeding_current <- rowMeans(pr_cur_mat, na.rm = TRUE)
 pr_cur_breeding_df <- data.frame(
   longitude = coords_unique$longitude,
   latitude = coords_unique$latitude,
-  pr_breeding_current = pr_breeding_current
-)
+  pr_breeding_current = pr_breeding_current)
 
+#check
 head(pr_cur_breeding_df)
 
 # =========================
@@ -259,6 +304,11 @@ head(pr_fut_breeding_df)
 # =========================
 # 8) JOIN ALL CLIMATE DATA TO THE ORIGINAL TABLE
 # =========================
+
+# Join the current and future climate variables back to the original occurrence
+# table using longitude and latitude as matching columns
+# This creates one final dataframe where each occurrence point has its associated
+# current and future breeding-season climate values
 matrix_final_climate <- matrix_final %>%
   left_join(tas_cur_breeding_df, by = c("longitude", "latitude")) %>%
   left_join(tas_fut_breeding_df, by = c("longitude", "latitude")) %>%
@@ -269,13 +319,49 @@ matrix_final_climate <- matrix_final %>%
     delta_pr_breeding = pr_breeding_future_2050 - pr_breeding_current
   )
 
+#check
 head(matrix_final_climate)
 
 # =========================
 # 9) CHECK THE RESULT
 # =========================
+# Compare the dimensions of the original and final datasets
 dim(matrix_final)
 dim(matrix_final_climate)
+
+#they have different dimention: 
+
+# Remove duplicated coordinate pairs from each climate dataframe
+# This is important before joining the climate data back to the occurrence table,
+# because duplicated longitude/latitude combinations can create a many-to-many join
+# and artificially multiply the number of rows in the final dataframe
+
+tas_cur_breeding_df <- tas_cur_breeding_df %>%
+  distinct(longitude, latitude, .keep_all = TRUE)
+
+tas_fut_breeding_df <- tas_fut_breeding_df %>%
+  distinct(longitude, latitude, .keep_all = TRUE)
+
+pr_cur_breeding_df <- pr_cur_breeding_df %>%
+  distinct(longitude, latitude, .keep_all = TRUE)
+
+pr_fut_breeding_df <- pr_fut_breeding_df %>%
+  distinct(longitude, latitude, .keep_all = TRUE)
+  
+# Join all climate variables back to the original occurrence table
+matrix_final_climate <- matrix_final %>%
+  left_join(tas_cur_breeding_df, by = c("longitude", "latitude")) %>%
+  left_join(tas_fut_breeding_df, by = c("longitude", "latitude")) %>%
+  left_join(pr_cur_breeding_df, by = c("longitude", "latitude")) %>%
+  left_join(pr_fut_breeding_df, by = c("longitude", "latitude")) %>%
+  mutate(
+    delta_tas_breeding_c = tas_breeding_future_2050_c - tas_breeding_current_c,
+    delta_pr_breeding = pr_breeding_future_2050 - pr_breeding_current)
+
+dim(matrix_final_climate)
+#all good
+
+# Check the column names to confirm that the new climate variables were added
 names(matrix_final_climate)
 
 # SAVE the dataframe 

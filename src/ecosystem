@@ -10,60 +10,90 @@ library(ggplot2)
 file_path <- "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/ecosystem_raster_europe.tif"
 ecosystem_europe <- raster(file_path)
 
+# check that the raster was loaded correctly
 #plot(ecosystem_europe, main = "Ecosystem Raster Restricted to Europe")
 
 #------------------------------------------------------------------------------
 # 2) LOAD SPECIES COORDINATES
 #------------------------------------------------------------------------------
+# Define the geographic extent used for plotting Europe
 xmin <- -22
 xmax <- 57
 ymin <- 30
 ymax <- 70
+
+# Inspect the final occurrence table containing the three species
+# this table should include longitude and latitude columns
 head(matrix_final)
 
+# Convert the occurrence coordinates into a SpatialPoints object.
 spatial_points <- SpatialPoints(
   coords = matrix_final[, c("longitude", "latitude")],
   proj4string = CRS("+proj=longlat +datum=WGS84")
 )
+
+# Plot the ecosystem raster and overlay the species occurrence points
+# This is a visual check to make sure that the occurrence points fall
+# correctly on top of the ecosystem raster
 quartz()
 plot(ecosystem_europe, main = "Species Occurrences on Ecosystem Map",st_geometry(Europe), xlim = c(-22, 57), ylim = c(30, 70))
-g=plot(spatial_points, add = TRUE, pch = 16, cex = 0.3)
-print(g)
+plot(spatial_points, add = TRUE, pch = 16, cex = 0.3)
+
 #------------------------------------------------------------------------------
 # 3) EXTRACT ECOSYSTEM VALUES
 #------------------------------------------------------------------------------
 
+# Extract the raster pixel value at each species occurrence point
+# Each extracted value represents the ecosystem class where that occurrence
+# point is located
 eco_values <- raster::extract(ecosystem_europe, spatial_points)
+
+#Check
 head(eco_values)
 
+# Add the extracted ecosystem values to the species occurrence table.
 matrix_full_eco <- data.frame(matrix_final, eco_values)
+
+#Check
 head(matrix_full_eco)
 
 #------------------------------------------------------------------------------
 # 4) LOAD METADATA
 #------------------------------------------------------------------------------
+# Load the metadata table associated with the ecosystem raster
+# This table translates numeric raster values into ecosystem descriptions,
+# climate regions, and other ecological information
 
 metadata_eco <- read.delim("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/WorldEcosystem.metadata.tsv")
+
+#Inspection
 head(metadata_eco)
 
 #------------------------------------------------------------------------------
 # 5) MERGE WITH METADATA
 #------------------------------------------------------------------------------
 
-matrix_full_eco <- merge(
-  matrix_full_eco,
-  metadata_eco,
-  by.x = "eco_values",
-  by.y = "Value"
-)
 
+# Merge the occurrence table with the ecosystem metadata
+# The column eco_values contains the raster values extracted at each point
+# The column Value in the metadata table contains the corresponding ecosystem codes
+# This step adds ecosystem information to each species occurrence record
+matrix_full_eco <- matrix_full_eco %>%
+  left_join(
+    metadata_eco,
+    by = c("eco_values" = "Value")
+  )
+#check
 head(matrix_full_eco)
-
+dim(matrix_full_eco)
 #------------------------------------------------------------------------------
 # 6) PLOT
 #------------------------------------------------------------------------------
+# Create a bar plot showing how many occurrence records of each species
+# fall within each climate category
+# This allows comparison of the climatic/ecosystem distribution of the species
 quartz()
-count <- ggplot(matrix_full_eco, aes(x = Climate_Re, fill = species)) +
+count <- ggplot(matrix_full_eco %>% filter(!is.na(Climate_Re)), aes(x = Climate_Re, fill = species)) +
   geom_bar(position = "dodge") +
   labs(
     title = "Count of Observations of Each Species by Climate",

@@ -12,6 +12,9 @@ library(sf)
 sf_use_s2(FALSE)
 
 ### Prunella modularis ####
+# All the comment made in the cuculus code is valid for this one too
+# nothing change except for the specie name
+
 ###############################################################################
 # 2) USER PARAMETERS
 ###############################################################################
@@ -27,12 +30,13 @@ date_start <- as.Date("2015-01-01")
 date_end   <- as.Date("2026-12-31")
 
 # Simplified geographic extent for Europe
+#coordinates that look pretty clean
 xmin <- -22
 xmax <- 57
 ymin <- 30
 ymax <- 70
-#se voglio fare una carta super pulita posso provare a creare un raster delle dimensioni che voglio
-#poi dopo il mio plot si ritaglierà sopra il mio raster e avrò una mappa più pulita
+#If I want to create a really clean map, I can try making a raster of the size I want
+#Then, after plotting, my map will be cropped to fit the raster, and I'll have a cleaner map
 ###############################################################################
 # 3) BASE MAP: Europe
 ###############################################################################
@@ -63,7 +67,7 @@ gbif_raw <- occ_data(
 
 # Extract the main data table
 gbif_occ <- gbif_raw$data
-gbif_occ$continent
+gbif_occ$continent # i need to write EUROPE and not europe
 # Quick inspection
 head(gbif_occ)
 names(gbif_occ)

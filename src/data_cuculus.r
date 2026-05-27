@@ -10,6 +10,8 @@ library(dplyr)         # table manipulation
 library(sf)       
 
 sf_use_s2(FALSE)
+# Disable spherical geometry operations
+# This can help avoid issues when cropping or plotting spatial objects
 
 
 ### CUCULUS CANORUS ####
@@ -26,27 +28,30 @@ gbif_limit <- 7000 #se ci mette troppo a caricare torna a 5000
 # Time filtering period
 date_start <- as.Date("2015-01-01")
 date_end   <- as.Date("2026-12-31")
+# I chose realtively recent observations, from 2015 onward to reduce
+# the influence of old records that may no longer reppresent current species distributions
 
 # Simplified geographic extent for Europe
+# These coordinates are used to limit the map visualization
+
 xmin <- -22
 xmax <- 57
 ymin <- 30
 ymax <- 70
-#se voglio fare una carta super pulita posso provare a creare un raster delle dimensioni che voglio
-#poi dopo il mio plot si ritaglierà sopra il mio raster e avrò una mappa più pulita
+
 ###############################################################################
 # 3) BASE MAP: Europe
 ###############################################################################
 
-# Download the outline of Europe
+# Download the outline of European countries as an sf spatial object
+# I will use this as a base map for plotting occurence records
 Europe <- ne_countries(
   scale = "medium",
   returnclass = "sf",
   continent = "Europe"
 )
 
-
-# Simple visualization of the map
+# Simple visualization of the map (is more to check if the visualization is good )
 
 #ggplot(data = Europe) + geom_sf(fill = "grey95", color = "black") + theme_classic()
   
@@ -69,11 +74,13 @@ gbif_occ$continent
 # Quick inspection
 head(gbif_occ)
 names(gbif_occ)
+# i check the dataset because "europe" wasn't working
 
 # Select occurrences located in Europe
 gbif_Europe <- gbif_occ %>%
   filter(continent == "EUROPE") %>%
   filter(species == myspecies) #to have only my sp.
+# The column 'species' is used because it groups subspecies under the main species name
 
 
 # Check number of records
@@ -115,6 +122,8 @@ print(t1)
 # eventDate may contain date + time; as.Date() keeps only the date
 names(gbif_occ)
 
+#The species name is set to 'myspecies' after filtering, so subspecies are grouped
+# under the main species name
 data_gbif <- data.frame(
   species   = myspecies,
   latitude  = gbif_Europe$decimalLatitude,
@@ -126,6 +135,9 @@ data_gbif <- data.frame(
 # Check structure
 head(data_gbif)
 str(data_gbif)
+
+# Check the taxonomic information in the original GBIF records
+# This helps verify that subspecies or accepted names are still linked to Cuculus canorus
 table(gbif_Europe$species, useNA = "ifany")
 table(gbif_Europe$acceptedScientificName, useNA = "ifany")
 table(gbif_Europe$taxonRank, useNA = "ifany")
@@ -146,6 +158,8 @@ inat_raw <- get_inat_obs(
 # Inspect the structure
 head(inat_raw)
 names(inat_raw)
+# Check which scientific names were returned by the iNaturalist query
+# This is important because iNaturalist may return subspecies or closely related names
 table(inat_raw$scientific_name, useNA = "ifany")
 
 # Map showing iNaturalist occurrences only
@@ -168,9 +182,19 @@ print(t2)
 ###############################################################################
 
 #Clean the data :
+# First, remove records without a scientific name
+# Then, keep only records identified as Cuculus canorus or its subspecies
+# The regular expression keeps:
+# - "Cuculus canorus"
+# - "Cuculus canorus canorus"
+# - "Cuculus canorus bangsi"
 inat_clean <- inat_raw %>%
   filter(!is.na(scientific_name)) %>%
   filter(grepl("^Cuculus canorus( |$)", scientific_name)) # I keep the subspecies 
+
+# Create a simplified iNaturalist data frame with the same structure as the GBIF table.
+# The species name is set to 'myspecies' after filtering, so all valid subspecies
+# are grouped under the main species name
 
 # In most rinat versions the observation date is stored in observed_on
 # Convert it to Date format
@@ -217,6 +241,9 @@ table(matrix_full_date_sp1$source)
 ###############################################################################
 # 10) MAP OF COMBINED DATA
 ###############################################################################
+# Create a final map showing both GBIF and iNaturalist occurrence records
+# The fill color indicates the data source of each observation
+
 quartz()
 t3 <- ggplot(data = Europe) +
   geom_sf(fill = "grey95", color = "black") +

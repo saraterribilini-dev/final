@@ -3,6 +3,11 @@
 # BREEDING SEASON = APRIL TO JULY
 ###############################################################################
 
+# This script uses the climate dataframe created in the previous step
+# The dataframe already contains current and future temperature/precipitation
+# values extracted at each species occurrence point
+
+
 # =========================
 # 1) PACKAGES
 # =========================
@@ -13,11 +18,16 @@ library(ggplot2)
 
 #CALL THE DF
 matrix_final_climate <- readRDS("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_final_climate.rds")
+#check
 head(matrix_final_climate)
 
 # =========================
 # 10) PLOT CURRENT VS FUTURE BREEDING SEASON TEMPERATURE
 # =========================
+
+# This scatter plot compares current breeding-season temperature with projected
+# future breeding-season temperature in 2050 for each occurrence point
+
 quartz()
 clima <- ggplot(
   matrix_final_climate,
@@ -37,6 +47,9 @@ print(clima)
 # =========================
 # 11) PLOT CURRENT VS FUTURE BREEDING SEASON PRECIPITATION
 # =========================
+# This scatter plot compares current breeding-season precipitation with projected
+# future breeding-season precipitation in 2050 for each occurrence point
+
 quartz()
 precip <- ggplot(
   matrix_final_climate,
@@ -56,6 +69,8 @@ print(precip)
 # =========================
 # 12) PLOT TEMPERATURE CHANGE BY SPECIES
 # =========================
+# This boxplot compares the projected temperature change among species
+# Positive values indicate projected warming at the occurrence locations
 quartz()
 clima2=ggplot(matrix_final_climate, aes(x = species, y = delta_tas_breeding_c, fill = species)) +
   geom_boxplot() +
@@ -71,6 +86,8 @@ print(clima2)
 # =========================
 # 13) PLOT PRECIPITATION CHANGE BY SPECIES
 # =========================
+
+# This boxplot compares the projected precipitation change among species
 quartz()
 clima3=ggplot(matrix_final_climate, aes(x = species, y = delta_pr_breeding, fill = species)) +
   geom_boxplot() +

@@ -83,11 +83,27 @@ Europe_sf_crop <- st_crop(
   ymin = ymin,
   ymax = ymax
 )
-st_write(
-  Europe_sf_crop,
-  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/europe.geojson",
-  delete_dsn = TRUE
-)
+#st_write(Europe_sf_crop,
+  #"/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/europe1.geojson",
+  #delete_dsn = TRUE)
+
+# I'm trying to download the tif file form NASA site, i had planty of problems 
+# everytime in the download I have only few country, I did 5 dowload in differnt years but nothing change, my tif files are empty
+
+
+nrow(Europe_sf_crop)
+Europe_one_polygon <- Europe_sf_crop %>%
+  summarise(name = "Europe", geometry = st_union(geometry))
+  
+nrow(Europe_one_polygon)
+#1 
+#I try to transform the europe in one polygon, maybe like that the nasa site will give me all the data
+#st_write( Europe_one_polygon,
+  #"/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/europe_one_polygon.geojson",
+  #delete_dsn = TRUE)
+
+# IT WORKED!!!!!!!!!!!
+# Since is all the europe my NDVI has a resolution of 1km and I chose 1-20 may in 2025
 
 # ------------------------------------------------------------------------------
 # MANUAL STEP IN APP EEARS
@@ -108,46 +124,37 @@ st_write(
 # ==============================================================================
 # 5. Read the manually downloaded NDVI raster
 # ==============================================================================
-manual_path <- "./data/modis"
 
-# List all tif files in the folder
-manual_tif <- list.files(
-  manual_path,
-  pattern = "\\.tif$",
-  full.names = TRUE,
-  recursive = TRUE
-)
+manual_tif <- "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/1_km_monthly_NDVI.tif"
 
-print(manual_tif)
-
-# Read the first raster
-ndvi_raster <- rast(manual_tif[1])
+ndvi_raster <- rast(manual_tif)
 
 # Check raster information
 print(ndvi_raster)
 
 # Plot the raster
-windows()
+quartz()
 plot(ndvi_raster, main = "Manually downloaded NDVI raster")
-
+# it worked I want to cry
 
 # ==============================================================================
-# 6. Clip the raster to the exact Switzerland border
+# 6. Clip the raster to Europe
 # ==============================================================================
-switzerland_vect <- vect(switzerland_sf)
 
-# Reproject the Switzerland polygon to the raster CRS
-switzerland_vect <- project(switzerland_vect, crs(ndvi_raster))
+# Convert Europe country from sf to terra vector
+europe_vect <- vect(Europe_sf_crop)
 
-# Crop and mask
-ndvi_switzerland <- crop(ndvi_raster, switzerland_vect)
-ndvi_switzerland <- mask(ndvi_switzerland, switzerland_vect)
+# Reproject Europe polygon to the raster CRS
+europe_vect <- project(europe_vect, crs(ndvi_raster))
+
+# Crop and mask raster to Europe
+ndvi_europe <- crop(ndvi_raster, europe_vect)
+ndvi_europe <- mask(ndvi_europe, europe_vect)
 
 # Plot the clipped raster
-windows()
-plot(ndvi_switzerland, main = "NDVI raster clipped to Switzerland")
-plot(switzerland_vect, add = TRUE, border = "black", lwd = 1)
-
+quartz()
+plot(ndvi_europe, main = "NDVI raster clipped to Europe")
+plot(europe_vect, add = TRUE, border = "black", lwd = 1) #delimitation of each country
 
 # ==============================================================================
 # 7. Convert the sampling table to spatial points
@@ -156,27 +163,30 @@ plot(switzerland_vect, add = TRUE, border = "black", lwd = 1)
 # and contains longitude and latitude columns.
 
 points_vect <- vect(
-  matrix_full_eco,
+  matrix_full_eco_elev,
   geom = c("longitude", "latitude"),
   crs = "EPSG:4326"
 )
 
 # Reproject the points to the raster CRS
-points_vect <- project(points_vect, crs(ndvi_switzerland))
+points_vect <- project(points_vect, crs(ndvi_europe))
 
 # Plot the points on top of the raster
-plot(ndvi_switzerland, main = "Sampling points over NDVI raster")
-plot(points_vect, add = TRUE, col = "red", pch = 16)
+quartz()
+plot(ndvi_europe, main = "Sampling points over NDVI raster")
+plot(points_vect, add = TRUE, col = "red", pch = 16, cex = 0.5)
 
 
 # ==============================================================================
 # 8. Extract NDVI values at point locations
 # ==============================================================================
-ndvi_values <- terra::extract(ndvi_switzerland, points_vect)
+ndvi_values <- terra::extract(ndvi_europe, points_vect)
 
 # Check extracted values
 head(ndvi_values)
 
+#0.5–0.6 = moderate vegetation cover
+#0.7–0.8 = relatively dense and photosynthetically active vegetation
 
 # ==============================================================================
 # 9. Add NDVI values to the original data frame
@@ -184,24 +194,57 @@ head(ndvi_values)
 # The first column returned by terra::extract() is usually the point ID
 # and the second column contains the extracted raster value.
 
-matrix_full_eco$NDVI <- ndvi_values[, 2]
+matrix_full_eco_elev$NDVI <- ndvi_values[, 2]
 
 # Check the updated table
-head(matrix_full_eco)
+head(matrix_full_eco_elev) # correct
 
+#rename the df:
+matrix_full_eco_elev_sat <- matrix_full_eco_elev
+#save de df:
+#saveRDS(matrix_full_eco_elev_sat,
+  #"/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_full_eco_elev_sat.rds")
 
 # ==============================================================================
 # 10. Simple control plot
 # ==============================================================================
 
-windows()
+quartz()
 
-
-  ggplot(matrix_full_eco, aes(x = NDVI, fill = Climate_Re)) +
-  geom_density(alpha = 0.5, adjust = 3) +  # smoothed density curves
+l1= ggplot(matrix_full_eco_elev_sat, aes(x = NDVI, fill = Climate_Re, color = Climate_Re)) +
+  geom_density(alpha = 0.3, adjust = 2) +
   labs(
-    title = "NDVI Distribution by Climate",
+    title = "NDVI distribution at occurrence points by climate region",
     x = "NDVI",
-    y = "Density"
+    y = "Density",
+    fill = "Climate region",
+    color = "Climate region"
   ) +
   theme_minimal()
+print(l1)
+
+# Another way to visualize the results
+# This plot compares the NDVI values extracted at the occurrence points
+# across the different climate regions stored in the column Climate_Re.
+quartz()
+l2=ggplot(matrix_full_eco_elev_sat, aes(x = Climate_Re, y = NDVI, fill = Climate_Re)) +
+  geom_violin(alpha = 0.5, trim = FALSE) +
+  geom_boxplot(width = 0.12, outlier.shape = NA, alpha = 0.8) +
+  geom_jitter(width = 0.15, alpha = 0.25, size = 0.7) +
+  labs(
+    title = "NDVI values at occurrence points across climate regions",
+    x = "Climate region",
+    y = "NDVI"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+print(l2)
+
+#The violin plot shows the full distribution of NDVI values for each climate region. 
+#Wider parts of the violin indicate that many observations have similar NDVI values.
+# The boxplot summarizes the central tendency and spread of the NDVI values.
+# This rapresentation helps to see how many observations are present and how variable they are.
+

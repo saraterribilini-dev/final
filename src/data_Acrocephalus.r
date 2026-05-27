@@ -12,6 +12,9 @@ library(sf)
 sf_use_s2(FALSE)
 
 ### Acrocephalus scirpaceus ####
+# All the comment made in the cuculus code is valid for this one too
+# The only part that changes is the last one, where I combine all the dates for the three species
+
 ###############################################################################
 # 2) USER PARAMETERS
 ###############################################################################
@@ -219,10 +222,17 @@ l3 <- ggplot(data = Europe) +
   labs(title = "Occurrences of Acrocephalus scirpaceus in Europe")
 print(l3)
 
+###############################################################################
+# 11) COMBINE THE THREE SPECIES DATA SETS
+###############################################################################
 
-#combine all the data
+# Combine the filtered occurrence tables of the three species into one data frame.
+# matrix_full_date_sp1 = Cuculus canorus
+# matrix_full_date_sp2 = Prunella modularis
+# matrix_full_date_sp3 = Acrocephalus scirpaceus
+
 matrix_int <- bind_rows(matrix_full_date_sp1, matrix_full_date_sp2)
 matrix_final <- bind_rows(matrix_int, matrix_full_date_sp3)
 
-
+#final check
 table(matrix_final$species)

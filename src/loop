@@ -1,0 +1,403 @@
+###############################################################################
+# R SCRIPT - INTRODUCTION TO FOR LOOPS AND APPLICATION TO CHELSA
+# Master Course - Programming and Climate Data
+# 
+# Objectives:
+# 1. Understand the principle of for loops
+# 2. Apply loops to extract data for multiple months
+# 3. Apply loops to compare multiple scenarios
+###############################################################################
+
+library(Rchelsa)
+library(dplyr)
+library(ggplot2)
+
+###############################################################################
+# PART 1: UNDERSTANDING FOR LOOPS
+###############################################################################
+
+# =========================
+# EXAMPLE 1: Simple loop with numbers
+# =========================
+
+# A for loop repeats an action for each element of a vector
+# Syntax: for (variable in vector) { actions }
+
+for (i in 1:5) {
+  cat("Iteration number", i, "\n")
+  Sys.sleep(3) #mette in pausa il sistema per 3 s cosi quando si vede poco a poco i risultati
+}
+
+
+# =========================
+# EXAMPLE 2: Loop with calculations
+# =========================
+
+# Calculate the square of each number
+for (number in 1:5) {
+  square <- number^2
+  cat(number, "squared =", square, "\n")
+}
+
+
+
+# =========================
+# EXAMPLE 3: Loop to store results
+# =========================
+
+# Create an empty vector to store results
+results <- c()
+
+# Loop to calculate and store
+for (i in 1:5) {
+  result <- i * 10
+  results <- c(results, result)  # Append to the end of the vector
+  Sys.sleep(3)
+  print(results)
+}
+
+# =========================
+# EXAMPLE 4: Loop over a character vector
+# =========================
+
+months <- c("January", "February", "March", "April", "May")
+
+for (month_name in months) {
+  cat("- Month:", month_name, "\n")
+}
+
+# =========================
+# EXAMPLE 5: Indexed loop to build a data.frame
+# =========================
+
+# Create an empty data.frame
+my_table <- data.frame(
+  number = integer(),
+  value  = numeric()
+)
+
+# Fill the table using a loop
+for (i in 1:5) {
+  new_row <- data.frame(
+    number = i,
+    value  = i * 2
+  )
+  my_table <- rbind(my_table, new_row)
+}
+
+print(my_table)
+
+
+
+
+###############################################################################
+# PART 2: DATA PREPARATION FOR CHELSA
+###############################################################################
+
+# Create a simplified dataset with 6 points in Switzerland
+species_df <- data.frame(
+  occurrence_id = 1:6,
+  species   = rep("Pinus sylvestris", 6),
+  longitude = c(6.10, 6.80, 7.30, 7.90, 8.35, 8.85),
+  latitude  = c(46.10, 46.40, 46.70, 47.00, 47.30, 47.60)
+)
+
+# Prepare coordinates for CHELSA
+pts_v <- terra::vect(
+  species_df,
+  geom = c("longitude", "latitude"),
+  crs  = "EPSG:4326"
+)
+
+coords_df <- as.data.frame(terra::geom(pts_v)[, c("x", "y")]) %>%
+  rename(longitude = x, latitude = y) %>%
+  mutate(occurrence_id = species_df$occurrence_id)
+
+print(coords_df)
+
+
+###############################################################################
+# PART 3: UNDERSTANDING CHELSA CLIMATOLOGICAL PERIODS
+###############################################################################
+
+cat("╔════════════════════════════════════════════════════════════════╗\n")
+cat("║  IMPORTANT: FIXED PERIODS IN CHELSA                           ║\n")
+cat("╚════════════════════════════════════════════════════════════════╝\n\n")
+
+cat("For CURRENT CLIMATE (dataset = 'chelsa-climatologies'):\n")
+cat("  └─ Dates are FIXED and cannot be changed\n")
+cat("  └─ Reference period: 1981-2010\n")
+cat("  └─ Format: date = c(MONTH, 1981, 2010)\n")
+cat("  └─ Examples:\n")
+cat("     • date = c(1, 1981, 2010)  → January\n")
+cat("     • date = c(7, 1981, 2010)  → July\n")
+cat("     • date = c(12, 1981, 2010) → December\n\n")
+
+cat("For FUTURE PROJECTIONS (dataset = 'chelsa-climatologies'):\n")
+cat("  └─ Prediction dates are LIMITED to specific periods\n")
+cat("  └─ Available periods: 2011-2040, 2041-2070, 2071-2100\n")
+cat("  └─ Format: date = as.Date('YEAR-MONTH-01')\n")
+cat("  └─ Examples of valid dates:\n")
+cat("     • as.Date('2030-07-01') → Represents the period 2011-2040\n")
+cat("     • as.Date('2050-07-01') → Represents the period 2041-2070\n")
+cat("     • as.Date('2080-07-01') → Represents the period 2071-2100\n\n")
+
+cat("  ⚠️  WARNING: The exact year is just an indicator!\n")
+cat("      - 2030 = average of 2011-2040\n")
+cat("      - 2050 = average of 2041-2070\n")
+cat("      - 2080 = average of 2071-2100\n\n")
+
+cat("Available emission scenarios (parameter 'ssp'):\n")
+cat("  └─ ssp126: Optimistic (limited warming)\n")
+cat("  └─ ssp370: Intermediate\n")
+cat("  └─ ssp585: Pessimistic (strong warming)\n\n\n")
+
+###############################################################################
+# PART 4: FOR LOOP TO EXTRACT DATA FOR MULTIPLE MONTHS
+###############################################################################
+
+# Create an empty data.frame to store all results
+all_months <- data.frame()
+
+# List of month names for display
+month_names <- c("January", "February", "March", "April", "May", "June",
+                 "July", "August", "September", "October", "November", "December")
+
+# FOR LOOP: for each month from 1 to 12
+for (month in 1:12) {
+  
+  cat("→ Processing month", month, "(", month_names[month], ")...\n")
+  
+  # Extract temperature for this month
+  # REMINDER: the period 1981-2010 is FIXED, only the month changes
+  tas_month <- getChelsa(
+    var     = "tas",
+    coords  = coords_df %>% dplyr::select(longitude, latitude),
+    date    = c(month, 1981, 2010),  # The month changes at each iteration
+    dataset = "chelsa-climatologies"
+  )
+  
+  # Convert to Celsius
+  tas_celsius <- tas_month %>%
+    dplyr::select(-time) %>%
+    unlist() %>%
+    as.numeric() - 273.15
+  
+  # Create a small table for this month
+  month_result <- data.frame(
+    occurrence_id = species_df$occurrence_id,
+    month         = month,
+    month_name    = month_names[month],
+    temperature_c = tas_celsius
+  )
+  
+  # Append to the main table
+  all_months <- rbind(all_months, month_result)
+}
+
+
+# Display a preview of the results
+print(head(all_months, 6))
+print(tail(all_months, 6))
+
+
+
+# =========================
+# VISUALISATION: Seasonal cycle
+# =========================
+
+# Calculate mean temperature per month (across all points)
+mean_temp_by_month <- all_months %>%
+  group_by(month, month_name) %>%
+  summarise(mean_temp = mean(temperature_c), .groups = "drop")
+
+# Plot 1: Seasonal cycle
+p1 <- ggplot(mean_temp_by_month, aes(x = month, y = mean_temp)) +
+  geom_line(color = "darkred", size = 1.2) +
+  geom_point(color = "darkred", size = 3) +
+  scale_x_continuous(breaks = 1:12, 
+                     labels = c("J", "F", "M", "A", "M", "J", 
+                               "J", "A", "S", "O", "N", "D")) +
+  theme_classic(base_size = 12) +
+  labs(
+    title    = "Seasonal temperature cycle",
+    subtitle = "Climatological mean 1981-2010",
+    x = "Month",
+    y = "Mean temperature (°C)"
+  ) +
+  theme(plot.title = element_text(face = "bold"))
+
+print(p1)
+
+# Plot 2: Temperatures per point and per month
+p2 <- ggplot(all_months, aes(x = month, y = temperature_c, 
+                              group = occurrence_id, color = factor(occurrence_id))) +
+  geom_line(alpha = 0.7) +
+  geom_point(alpha = 0.7) +
+  scale_x_continuous(breaks = 1:12, 
+                     labels = c("J", "F", "M", "A", "M", "J", 
+                               "J", "A", "S", "O", "N", "D")) +
+  theme_classic(base_size = 12) +
+  labs(
+    title    = "Seasonal cycle for each point",
+    subtitle = "6 locations in Switzerland (1981-2010)",
+    x     = "Month",
+    y     = "Mean temperature (°C)",
+    color = "Point ID"
+  ) +
+  theme(plot.title = element_text(face = "bold"))
+
+print(p2)
+
+###############################################################################
+# PART 5: FOR LOOP TO COMPARE MULTIPLE SCENARIOS
+###############################################################################
+
+# List of scenarios to compare
+scenarios      <- c("ssp126", "ssp370", "ssp585")
+scenario_names <- c("SSP1-2.6 (Optimistic)", 
+                    "SSP3-7.0 (Intermediate)", 
+                    "SSP5-8.5 (Pessimistic)")
+
+# First, get the current temperature (reference)
+tas_current <- getChelsa(
+  var     = "tas",
+  coords  = coords_df %>% dplyr::select(longitude, latitude),
+  date    = c(7, 1981, 2010),  # July, FIXED period 1981-2010
+  dataset = "chelsa-climatologies"
+)
+
+temp_current_c <- tas_current %>%
+  dplyr::select(-time) %>%
+  unlist() %>%
+  as.numeric() - 273.15
+
+# Data.frame to store results for all scenarios
+scenario_comparison <- data.frame(
+  occurrence_id       = rep(species_df$occurrence_id, length(scenarios)),
+  scenario            = rep(scenarios, each = nrow(species_df)),
+  scenario_name       = rep(scenario_names, each = nrow(species_df)),
+  current_temperature = rep(temp_current_c, length(scenarios)),
+  future_temperature  = NA,
+  change              = NA
+)
+
+# FOR LOOP: for each scenario
+for (i in 1:length(scenarios)) {
+  
+  current_scenario      <- scenarios[i]
+  current_scenario_name <- scenario_names[i]
+  
+  cat("→ Processing scenario", current_scenario, "(", current_scenario_name, ")...\n")
+  
+  # Extract future temperature for this scenario
+  # REMINDER: as.Date("2050-07-01") = average of the period 2041-2070
+  tas_future <- getChelsa(
+    var     = "tas",
+    coords  = coords_df %>% dplyr::select(longitude, latitude),
+    date    = as.Date("2050-07-01"),  # Represents 2041-2070
+    dataset = "chelsa-climatologies",
+    ssp     = current_scenario,       # The scenario changes at each iteration
+    forcing = "MPI-ESM1-2-HR"
+  )
+  
+  # Convert to Celsius
+  temp_future_c <- tas_future %>%
+    dplyr::select(-time) %>%
+    unlist() %>%
+    as.numeric() - 273.15
+  
+  # Fill values in the data.frame
+  # For rows corresponding to this scenario
+  row_idx <- which(scenario_comparison$scenario == current_scenario)
+  scenario_comparison$future_temperature[row_idx] <- temp_future_c
+  scenario_comparison$change[row_idx]             <- temp_future_c - temp_current_c
+}
+
+# Display the results
+print(scenario_comparison)
+
+
+# Calculate statistics per scenario
+scenario_stats <- scenario_comparison %>%
+  group_by(scenario, scenario_name) %>%
+  summarise(
+    mean_change = mean(change),
+    min_change  = min(change),
+    max_change  = max(change),
+    .groups = "drop"
+  )
+
+print(scenario_stats)
+
+
+# =========================
+# VISUALISATION: Scenario comparison
+# =========================
+
+# Plot 3: Boxplots of temperature changes
+p3 <- ggplot(scenario_comparison, aes(x = scenario_name, y = change, fill = scenario_name)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 2) +
+  scale_fill_manual(values = c("lightblue", "orange", "red")) +
+  theme_classic(base_size = 12) +
+  labs(
+    title    = "Comparison of climate scenarios",
+    subtitle = "Temperature change in July 2050 vs 1981-2010",
+    x = "Scenario",
+    y = "Temperature change (°C)"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "none",
+    axis.text.x = element_text(angle = 15, hjust = 1)
+  )
+
+print(p3)
+
+# Plot 4: Bar chart of mean change per scenario
+p4 <- ggplot(scenario_stats, aes(x = scenario_name, y = mean_change, fill = scenario_name)) +
+  geom_col(alpha = 0.8) +
+  geom_errorbar(aes(ymin = min_change, ymax = max_change), 
+                width = 0.2, size = 1) +
+  scale_fill_manual(values = c("lightblue", "orange", "red")) +
+  geom_text(aes(label = paste0("+", round(mean_change, 2), "°C")),
+            vjust = -0.5, size = 4, fontface = "bold") +
+  theme_classic(base_size = 12) +
+  labs(
+    title    = "Mean projected warming per scenario",
+    subtitle = "July 2050 (period 2041-2070) vs current climate (1981-2010)",
+    x = "Scenario",
+    y = "Mean temperature change (°C)"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "none",
+    axis.text.x = element_text(angle = 15, hjust = 1)
+  ) +
+  ylim(0, max(scenario_stats$max_change) * 1.2)
+
+print(p4)
+
+# Plot 5: Lines showing change per point across scenarios
+p5 <- ggplot(scenario_comparison, 
+             aes(x = factor(scenario, levels = scenarios), 
+                 y = change, 
+                 group = occurrence_id,
+                 color = factor(occurrence_id))) +
+  geom_line(size = 1, alpha = 0.7) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_x_discrete(labels = c("SSP126\n(Optimistic)", 
+                              "SSP370\n(Intermediate)", 
+                              "SSP585\n(Pessimistic)")) +
+  theme_classic(base_size = 12) +
+  labs(
+    title    = "Warming trend across scenarios",
+    subtitle = "For each of the 6 points in Switzerland",
+    x     = "Emission scenario",
+    y     = "Temperature change (°C)",
+    color = "Point ID"
+  ) +
+  theme(plot.title = element_text(face = "bold"))
+
+print(p5)

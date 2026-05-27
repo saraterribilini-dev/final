@@ -1,10 +1,12 @@
 getwd()
-source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_cuculus.r")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_cuculus.r") 
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_prunella.r")
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_Acrocephalus.r")
  
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/ecosystem")
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/elevation")
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/climate")
-## manca la parte dei satelliti
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/satellite")
 
+#final table
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/final matrix")

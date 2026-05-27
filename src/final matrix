@@ -1,0 +1,155 @@
+###############################################################################
+# FINAL DATASET: COMBINE SPECIES, ECOSYSTEM, ELEVATION, CLIMATE AND NDVI DATA
+###############################################################################
+
+# This script creates the final table used for the analysis
+# Each row represents one species occurrence point
+# The final dataframe combines:
+# - species occurrence data
+# - ecosystem category
+# - elevation
+# - current and future climate data
+# - NDVI satellite data
+
+# =========================
+# 1) PACKAGES
+# =========================
+
+library(dplyr)
+library(readr)
+
+# =========================
+# 2) LOAD SAVED DATASET
+# =========================
+
+# Load the climate dataframe created in the climate extraction script.
+# This table contains the original species occurrences plus current and future
+# temperature and precipitation values.
+matrix_final_climate <- readRDS(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_final_climate.rds"
+)
+
+# Load the ecosystem + elevation + NDVI dataframe if you saved it previously.
+# If you have not saved it yet, create it in the previous scripts and save it first.
+matrix_full_eco_elev_sat<- readRDS(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/matrix_full_eco_elev_sat.rds"
+)
+
+# Quick checks
+head(matrix_final_climate)
+head(matrix_full_eco_elev_sat)
+
+dim(matrix_final_climate)
+dim(matrix_full_eco_elev_sat)
+#there was a problm in the dimentions: 
+#dim(matrix_final_climate)
+# 20881 rows
+#dim(matrix_full_eco_elev_sat)
+# 16617 rows
+
+# Now is all good
+# =========================
+# 3) SELECT USEFUL COLUMNS
+# =========================
+
+# Select the useful climate columns.
+# We keep the occurrence identity columns and the climate variables.
+climate_selected <- matrix_final_climate %>%
+  select(
+    species,
+    latitude,
+    longitude,
+    source,
+    tas_breeding_current_c,
+    tas_breeding_future_2050_c,
+    delta_tas_breeding_c,
+    pr_breeding_current,
+    pr_breeding_future_2050,
+    delta_pr_breeding
+  )
+
+# Select the useful ecosystem, elevation and NDVI columns.
+# These columns describe the environmental context of each occurrence point.
+eco_elev_sat_selected <- matrix_full_eco_elev_sat %>%
+  select(
+    species,
+    latitude,
+    longitude,
+    source,
+    eco_values,
+    Temperatur,
+    Moisture,
+    Landcover,
+    Landforms,
+    Climate_Re,
+    W_Ecosystm,
+    elevation,
+    NDVI
+  )
+
+# =========================
+# 4) JOIN EVERYTHING INTO ONE FINAL TABLE
+# =========================
+
+# Join the ecosystem/elevation/NDVI table with the climate table.
+# The join is done using species, coordinates and source, so that climate data
+# are matched back to the correct occurrence records.
+matrix_full_eco_elev_clim_sat <- eco_elev_sat_selected %>%
+  left_join(
+    climate_selected,
+    by = c("species", "latitude", "longitude", "source")
+  )
+
+# Check the final dataframe
+head(matrix_full_eco_elev_clim_sat)
+dim(matrix_full_eco_elev_clim_sat)
+names(matrix_full_eco_elev_clim_sat)
+
+# =========================
+# CHECK MISSING VALUES / NA
+# =========================
+
+# Total number of NA in the whole final dataframe
+total_NA <- sum(is.na(matrix_full_eco_elev_clim_sat))
+cat("Total number of NA in the final dataset:", total_NA, "\n")
+
+# Number of NA per column
+NA_per_column <- colSums(is.na(matrix_full_eco_elev_clim_sat))
+
+print(NA_per_column)
+
+# Summary table of NA per column
+NA_summary <- data.frame(
+  column = names(matrix_full_eco_elev_clim_sat),
+  NA_count = colSums(is.na(matrix_full_eco_elev_clim_sat)),
+  NA_percentage = round(colSums(is.na(matrix_full_eco_elev_clim_sat)) / 
+                          nrow(matrix_full_eco_elev_clim_sat) * 100, 2)
+)
+
+print(NA_summary)
+length(matrix_full_eco_elev_clim_sat$species)
+
+#In total, I have 67,734 out of 349,110 that is about 20% of the data are NA. 
+#It’s not a big deal since I’m working with a large map containing a lot of data, so I can simply remove the NA values.
+
+#I remove the NA from the final matrix
+matrix_full_eco_elev_clim_sat_clean <- matrix_full_eco_elev_clim_sat %>%
+  filter(complete.cases(.))
+#check
+dim(matrix_full_eco_elev_clim_sat)
+dim(matrix_full_eco_elev_clim_sat_clean)
+sum(is.na(matrix_full_eco_elev_clim_sat_clean))
+
+# =========================
+# 5) SAVE FINAL TABLE
+# =========================
+
+# Save the final combined dataframe as a CSV file.
+# This file can be opened in Excel, R, or used for later analysis.
+#write.csv(matrix_full_eco_elev_clim_sat_clean,
+  #"/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/matrix_full_eco_elev_clim_sat_clean.csv",
+  #row.names = FALSE)
+
+# Also save as RDS to preserve R data types more cleanly.
+#saveRDS(matrix_full_eco_elev_clim_sat_clean,
+  #"/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/matrix_full_eco_elev_clim_sat_clean.rds")

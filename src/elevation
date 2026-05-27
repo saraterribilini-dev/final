@@ -29,13 +29,17 @@ Europe <- ne_countries(
 # =========================
 # 3. Download elevation data
 # =========================
+# The following lines were used to download elevation data for Europe.
+# Since I'm working on European level the download is heavy and I did it only one time and save the raster 
+
 # z controls resolution (higher = more detail but slower)
 #elevation_Europe <- get_elev_raster(Europe, z = 6)
 #elevation_Europe_crop <- crop(elevation_Europe, extent(-22,57,30,70))
+
 # Quick visualization of the elevation raster
 #plot(elevation_Europe_crop)
 
-#save file
+#save the cropped elevation raster to the computer.
 #library(terra)
 #r<-rast(elevation_Europe_crop)
 #writeRaster(r,"/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/elevation_europe_crop.tif")
@@ -49,7 +53,11 @@ Europe <- ne_countries(
 
 file_path <- "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/elevation_europe_crop.tif"
 elevation_europe <- raster(file_path)
+
+# Print raster information to check that the file was loaded correctly
 print(elevation_europe)
+
+#check the visualitzation of the plot
 #plot(elevation_europe, main = "Elevation Raster Restricted to Europe")
 
 
@@ -70,15 +78,23 @@ elevation <- raster::extract(elevation_europe, spatial_points)
 # =========================
 # 6. Add elevation to the dataset
 # =========================
+
+# Add the extracted elevation values as a new column in the occurrence dataset
 matrix_full_eco_elev <- data.frame(
   matrix_full_eco,
   elevation = elevation
 )
-
+#check
+head(matrix_full_eco_elev)
 # =========================
 # 7. Visualization: elevation distribution
 # =========================
 # Compare elevation distributions across climate categories
+
+# This plot shows the distribution of elevation values across climate categories
+# It helps assess whether occurrence points in different climate regions are
+# associated with different elevation ranges
+
 quartz()
 p3 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
   geom_density(alpha = 0.5, adjust = 3) +  # smoothed density curves
@@ -92,7 +108,14 @@ p3 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
 # Display the plot
 print(p3)
 
-# Visualization of the elevation of the different biomes by species
+# =========================
+# 8. Visualization: elevation distribution by climate category within each species
+# =========================
+
+# This plot shows elevation distributions separately for each species
+# Within each species panel, the different colors represent climate categories
+# This is useful to compare how each species is distributed across elevation
+# gradients in different climate regions
 quartz()
 p4 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
   geom_density(alpha = 0.5, adjust = 3) +
@@ -106,6 +129,14 @@ p4 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
 
 print(p4)
 
+# =========================
+# 9. Visualization: elevation distribution by species
+# =========================
+
+# This plot compares the overall elevation distribution of the three species
+# Each density curve represents one species
+# It is useful for checking whether the species tend to occur at different
+# elevation ranges
 quartz()
 p5 <- ggplot(matrix_full_eco_elev, aes(x = elevation, color = species)) +
   geom_density(adjust = 3) +
@@ -118,6 +149,13 @@ p5 <- ggplot(matrix_full_eco_elev, aes(x = elevation, color = species)) +
 
 print(p5)
 
+# =========================
+# 10. Visualization: species-specific elevation distribution by climate category
+# =========================
+
+# This plot combines species-level faceting with climate-category coloring
+# It allows comparison of the elevation distribution of occurrence points
+# within each species and across climate regions
 quartz()
 p6 <- ggplot(matrix_full_eco_elev, aes(x = elevation, fill = Climate_Re)) +
   geom_density(alpha = 0.5, adjust = 3) +
