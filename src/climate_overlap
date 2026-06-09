@@ -1,0 +1,93 @@
+#packages:
+library(ggplot2)   
+library(dplyr)     
+library(scales) 
+# ============================================================
+# CLIMATE PREFERENCE COMPARISON
+# Grouped barplot: species distribution across climate regions
+# ============================================================
+
+quartz()
+count <- ggplot(df, aes(x = Climate_Re, fill = species)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Count of Observations of Each Species by Climate",
+    x = "Climate category",
+    y = "Number of observations") +
+  theme_minimal()
+#print(count)
+# According to this graph, it shows that there are no observations in the Cool Temperate Dry category, but I know there are 21
+table(df$Climate_Re)
+
+#I convert the scale to a logarithmic scale for visualisation
+count2 <- ggplot(df, aes(x = Climate_Re, fill = species)) +
+  geom_bar(position = "dodge") +
+  scale_y_log10() +
+  labs(
+    title = "Count of observations of each species by climate region",
+    x = "Climate region",
+    y = "Number of observations (log scale)") +
+  theme_minimal()
+
+print(count2)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#The vast majority of records for all three species occur within the Cool Temperate Moist climate region, where observation counts are several orders of magnitude higher than in any other climate category. 
+#This indicates that moist temperate environments represent the main climatic conditions occupied by both Cuculus canorus and its host species.
+#Prunella modularis appears to be particularly underrepresented in the Warm Temperate Dry region compared with both Cuculus canorus and Acrocephalus scirpaceus, 
+#suggesting a lower tolerance for warmer and drier climatic conditions. This may indicate some degree of niche differentiation among the host species.
+#This graph should be interpreted with caution because it reflects observation frequency rather than true species abundance. 
+#In addition, the logarithmic scale reduces the visual differences among categories and may obscure the magnitude of the dominance of the Cool Temperate Moist region.
+
+
+# ============================================================
+# SPECIES COMPOSITION ACROSS CLIMATE REGIONS
+# Dot plot of relative observation frequency
+# ============================================================
+
+# Count the number of observations of each species in each climate region.
+# Then calculate the relative frequency of each species within each climate region.
+climate_species <- df %>%
+  count(Climate_Re, species) %>%
+  group_by(Climate_Re) %>%
+  mutate(prop = n / sum(n))
+
+# Plot the relative species composition for each climate region.
+# Point size represents the relative frequency of each species.
+# Percent labels are added to make the differences easier to interpret.
+
+quartz()
+plotC <- ggplot(
+  climate_species,
+  aes(
+    x = Climate_Re,
+    y = species,
+    size = prop,
+    color = species,
+    label = scales::percent(prop, accuracy = 1))) +
+  geom_point(alpha = 0.85) +
+  geom_text(
+    color = "#f9e2c2",
+    fontface = "bold",
+    size = 3) +
+  scale_size_area(max_size = 18) +
+  scale_color_manual(values = species_cols) +
+  labs(
+    title = "C. Species composition across climate regions",
+    x = "Climate region",
+    y = NULL) +
+  theme_minimal() +
+  theme(
+    legend.position = "none")
+
+print(plotC)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#Cuculus canorus represents the largest proportion of observations in all climate categories (42–48%), 
+#indicating a broad climatic overlap with its hosts. Acrocephalus scirpaceus is particularly common in the Warm Temperate Dry region (56%), 
+#whereas Prunella modularis reaches its highest relative frequency in the Warm Temperate Moist region (37%). 
+#Overall, the results suggest substantial climatic overlap among the three species, but also indicate some differences in their relative representation across climate regions, reflecting partial ecological differentiation.

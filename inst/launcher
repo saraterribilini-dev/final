@@ -1,8 +1,8 @@
 getwd()
+### INTERMEDIATE PROJECT ### 
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_cuculus.r") 
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_prunella.r")
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/data_Acrocephalus.r")
- 
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/ecosystem")
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/elevation")
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/climate")
@@ -10,3 +10,13 @@ source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data anal
 
 #final table
 source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/final matrix")
+
+### FINAL PROJECT ###
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/Load_data")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/presence_map")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/spatial_overlap")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/climate_overlap")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/environmental_gradients")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/PCA")
+source("/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/src/summary_panel.R")
+

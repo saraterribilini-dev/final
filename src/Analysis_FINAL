@@ -1,0 +1,540 @@
+# my github : https://github.com/saraterribilini-dev/final.git
+
+#My research question:
+#"Under which ecological and climatic conditions does the cuckoo overlap with its hosts?"
+
+# The analyses investigate:
+# - Spatial overlap between Cuculus canorus and two potential host species
+# - Climatic overlap across European climate regions
+# - Relative species composition within each climate region
+# - Elevational and vegetation-related environmental patterns
+# - Potential environmental constraints on the brood parasite distribution
+
+# ============================================================
+# Presence overlap map
+# ============================================================
+#This graph directly visualises whether the cuckoo occurs in the same regions as the two host species.
+
+#  Background: climate region from WTE raster metadata
+#  Points: species observations
+
+# Load packages
+library(dplyr)
+library(sf)
+library(raster)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggplot2)
+
+sf_use_s2(FALSE)
+
+# LOAD OCCURRENCE AND ENVIRONMENTAL DATA
+
+df <- read.csv(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/matrix_full_eco_elev_clim_sat_clean.csv",
+  stringsAsFactors = FALSE)
+
+# DEFINE EUROPEAN EXTENT
+
+xmin <- -22
+xmax <- 57
+ymin <- 30
+ymax <- 70
+europe_extent <- extent(xmin, xmax, ymin, ymax)
+
+# LOAD EUROPEAN BORDERS
+
+Europe <- ne_countries(
+  continent = "Europe",
+  scale = "medium",
+  returnclass = "sf")
+
+# LOAD AND PREPARE CLIMATE RASTER
+
+# The raster contains numerical values that are linked to climate regions
+# using the metadata table.
+
+climate_raster <- raster(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/ecosystem_raster_europe.tif")
+
+#reduce the raster size because is too heavy to create a df for the whole Europe
+climate_raster_small <- climate_raster %>%
+  crop(europe_extent) %>%
+  raster::sampleRegular(size = 800000, asRaster = TRUE)
+#check
+#plot(climate_raster_small)
+
+climate_df <- as.data.frame(
+  climate_raster_small,
+  xy = TRUE,
+  na.rm = TRUE)
+
+colnames(climate_df) <- c("x", "y", "climate_id")
+
+# LINK RASTER VALUES TO CLIMATE REGIONS
+
+metadata_climate <- read.delim(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/WorldEcosystem.metadata.tsv")
+
+climate_lookup <- metadata_climate %>%
+  dplyr::select(Value, Climate_Re) %>%
+  distinct() %>%
+  filter(!is.na(Value), !is.na(Climate_Re))
+
+climate_df <- climate_df %>%
+  mutate(climate_id = as.numeric(climate_id)) %>%
+  left_join(climate_lookup, by = c("climate_id" = "Value")) %>%
+  filter(!is.na(Climate_Re))
+
+# PREPARE SPECIES OBSERVATIONS
+
+#remove all the NA value
+df_points <- df %>%
+  filter(
+    !is.na(longitude),
+    !is.na(latitude),
+    !is.na(species),
+    !is.na(Climate_Re))
+
+# DEFINE COLORS AND SYMBOLS
+
+climate_cols <- c(
+  "Cool Temperate Dry" = "#f4d961",
+  "Cool Temperate Moist" = "#2a9d8f",
+  "Warm Temperate Dry" = "#e76f51",
+  "Warm Temperate Moist" = "#457b9d")
+
+species_cols <- c(
+  "Cuculus canorus" = "black",
+  "Prunella modularis" = "red",
+  "Acrocephalus scirpaceus" = "#00d5ff")
+
+species_shapes <- c(
+  "Cuculus canorus" = 16,
+  "Prunella modularis" = 17,
+  "Acrocephalus scirpaceus" = 15)
+
+# ============================================================
+# MAP: SPECIES OBSERVATIONS ACROSS CLIMATE REGIONS
+# ============================================================
+quartz()
+graphA <- ggplot() +
+  geom_tile(
+    data = climate_df,
+    aes(x = x, y = y, fill = Climate_Re),
+    alpha = 0.9) +
+  geom_sf(
+    data = Europe,
+    fill = NA,
+    color = "grey20",
+    linewidth = 0.4) +
+  geom_point(
+    data = df_points,
+    aes(x = longitude, y = latitude, color = species, shape = species),
+    size = 1.2,
+    alpha = 0.7) +
+  scale_fill_manual(values = climate_cols, name = "Climate region") +
+  scale_color_manual(values = species_cols, name = "Species") +
+  scale_shape_manual(values = species_shapes, name = "Species") +
+  coord_sf(
+    xlim = c(xmin, xmax),
+    ylim = c(ymin, ymax),
+    expand = FALSE) +
+  labs(
+    title = "A. Species observations across European climate regions",
+    x = "Longitude",
+    y = "Latitude") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    legend.position = "right",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8))
+
+print(graphA)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#The figure suggests that the cuckoo is not found throughout Europe by chance, but is strongly associated with the climatic regions where its host species are present.
+#It is noted that:
+#most sightings of Cuculus canorus are concentrated in the ‘Cool Temperate Moist’ regions
+#this same climatic region also has a significant population of Prunella modularis and Acrocephalus scirpaceus
+#the cuckoo is much less common in drier and warmer regions.
+
+#This is consistent with the ecology of brood parasitism.
+#Furthermore, the two hosts appear to occupy partially distinct niches:
+#Prunella modularis is very common in central-western Europe and in cooler regions,
+#Acrocephalus scirpaceus seems to be more closely associated with wetter regions and lower altitudes.
+
+#The cuckoo appears to overlap with both distributions, suggesting a degree of ecological flexibility and, likely, the ability to utilise multiple hosts.
+
+
+# ============================================================
+# GRID-BASED SPATIAL OVERLAP ANALYSIS
+# ============================================================
+# The study area is divided into 1° × 1° grid cells
+# For each cell, species presence is recorded and overlap
+# categories are assigned to identify potential areas of cuckoo-host interaction
+
+# Convert occurrence records to spatial points
+points_sf <- st_as_sf(
+  df_points,
+  coords = c("longitude", "latitude"),
+  crs = 4326)
+
+# Create a regular grid covering Europe
+grid_sf <- st_make_grid(
+  st_as_sfc(
+    st_bbox(
+      c(xmin = xmin, xmax = xmax,ymin = ymin,ymax = ymax),
+      crs = st_crs(4326)
+    )),
+  cellsize = 1 ) %>%
+  st_sf(grid_id = seq_along(.), geometry = .)
+
+# Assign observations to grid cells
+cell_species <- st_join(points_sf, grid_sf) %>%
+  st_drop_geometry() %>%
+  group_by(grid_id) %>%
+  summarise(
+    cuckoo   = any(species == "Cuculus canorus"),
+    prunella = any(species == "Prunella modularis"),
+    acro     = any(species == "Acrocephalus scirpaceus")) %>%
+  mutate(
+    overlap_type = case_when(
+      cuckoo & prunella & acro      ~ "Cuckoo + both hosts",
+      cuckoo & prunella             ~ "Cuckoo + Prunella",
+      cuckoo & acro                 ~ "Cuckoo + Acrocephalus",
+      cuckoo & !prunella & !acro    ~ "Only cuckoo",
+      !cuckoo & (prunella | acro)   ~ "Only hosts",
+      TRUE                          ~ "Other"))
+
+# Merge overlap information with the spatial grid
+grid_plot <- left_join(grid_sf, cell_species, by = "grid_id")
+
+# ============================================================
+# VISUALISE SPATIAL OVERLAP
+# ============================================================
+quartz()
+overlap_cols <- c(
+  "Only cuckoo" = "black",
+  "Only hosts" = "lightblue",
+  "Cuckoo + Prunella" = "orange",
+  "Cuckoo + Acrocephalus" = "purple",
+  "Cuckoo + both hosts" = "red")
+
+plot_overlap <- ggplot() +
+  geom_sf(
+    data = grid_plot,
+    aes(fill = overlap_type),
+    color = NA) +
+  geom_sf(
+    data = Europe,
+    fill = NA,
+    color = "grey20",
+    linewidth = 0.3) +
+  scale_fill_manual(
+    values = overlap_cols,
+    na.translate = FALSE) +
+  coord_sf(
+    xlim = c(xmin, xmax),
+    ylim = c(ymin, ymax)) +
+  labs(
+    title = "Spatial overlap between Cuculus canorus and host species",
+    fill = "Overlap type") +
+  theme_classic()
+
+print(plot_overlap)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+
+#Here, you are no longer simply showing points of presence, but quantifying spatial co-occurrence.
+#Unlike a simple point map, each grid cell in this analysis does not represent the exact number of observations, but rather the combination of species present in that area. 
+#This makes it possible to distinguish between cells where only the cuckoo was observed, cells where only the host species were present, and cells where the cuckoo co-occurred with one or both host species. 
+#The red cells, where Cuculus canorus co-occurs with both Prunella modularis and Acrocephalus scirpaceus, can be interpreted as potential hotspots of parasite–host interaction. 
+#These areas are mainly concentrated in western and central Europe, suggesting that environmental conditions and host availability in these regions may be particularly favourable for the cuckoo.
+#The orange and purple cells indicate areas where the cuckoo overlaps with only Prunella modularis or only Acrocephalus scirpaceus, respectively. 
+#This may suggest that the cuckoo exploits different host species in different ecological contexts, or that local host availability varies along geographical and environmental gradients. 
+#The black cells, where only the cuckoo is present, do not necessarily indicate a true absence of hosts. They may reflect the presence of other host species not included in this analysis, differences in sampling effort, or the greater mobility and detectability of Cuculus canorus. 
+# In contrast, the light blue cells, where only the host species are present, show that host presence alone is not sufficient to determine cuckoo presence. Other factors, such as climate, habitat structure, host density, breeding phenology, and migratory constraints, may also influence the distribution of the cuckoo.
+#Overall, this grid-based overlap map suggests that the distribution of Cuculus canorus is at least partly associated with the spatial distribution of its host species, but that this relationship is not perfect. 
+#This is consistent with the ecology of an obligate brood parasite: the cuckoo depends on suitable hosts for reproduction, but its realised distribution is likely shaped by a combination of host availability, environmental conditions, and landscape structure.
+
+# ============================================================
+# CLIMATE PREFERENCE COMPARISON
+# Grouped barplot: species distribution across climate regions
+# ============================================================
+
+quartz()
+count <- ggplot(df, aes(x = Climate_Re, fill = species)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Count of Observations of Each Species by Climate",
+    x = "Climate category",
+    y = "Number of observations") +
+  theme_minimal()
+#print(count)
+# According to this graph, it shows that there are no observations in the Cool Temperate Dry category, but I know there are 21
+table(df$Climate_Re)
+
+#I convert the scale to a logarithmic scale for visualisation
+count2 <- ggplot(df, aes(x = Climate_Re, fill = species)) +
+  geom_bar(position = "dodge") +
+  scale_y_log10() +
+  labs(
+    title = "Count of observations of each species by climate region",
+    x = "Climate region",
+    y = "Number of observations (log scale)") +
+  theme_minimal()
+
+print(count2)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#The vast majority of records for all three species occur within the Cool Temperate Moist climate region, where observation counts are several orders of magnitude higher than in any other climate category. 
+#This indicates that moist temperate environments represent the main climatic conditions occupied by both Cuculus canorus and its host species.
+#Prunella modularis appears to be particularly underrepresented in the Warm Temperate Dry region compared with both Cuculus canorus and Acrocephalus scirpaceus, 
+#suggesting a lower tolerance for warmer and drier climatic conditions. This may indicate some degree of niche differentiation among the host species.
+#This graph should be interpreted with caution because it reflects observation frequency rather than true species abundance. 
+#In addition, the logarithmic scale reduces the visual differences among categories and may obscure the magnitude of the dominance of the Cool Temperate Moist region.
+
+# ============================================================
+# SPECIES COMPOSITION ACROSS CLIMATE REGIONS
+# Dot plot of relative observation frequency
+# ============================================================
+
+# Count the number of observations of each species in each climate region.
+# Then calculate the relative frequency of each species within each climate region.
+climate_species <- df %>%
+  count(Climate_Re, species) %>%
+  group_by(Climate_Re) %>%
+  mutate(prop = n / sum(n))
+
+# Plot the relative species composition for each climate region.
+# Point size represents the relative frequency of each species.
+# Percent labels are added to make the differences easier to interpret.
+quartz()
+plotC <- ggplot(
+  climate_species,
+  aes(
+    x = Climate_Re,
+    y = species,
+    size = prop,
+    color = species,
+    label = scales::percent(prop, accuracy = 1))) +
+  geom_point(alpha = 0.85) +
+  geom_text(
+    color = "#f9e2c2",
+    fontface = "bold",
+    size = 3) +
+  scale_size_area(max_size = 18) +
+  scale_color_manual(values = species_cols) +
+  labs(
+    title = "C. Species composition across climate regions",
+    x = "Climate region",
+    y = NULL) +
+  theme_minimal() +
+  theme(
+    legend.position = "none")
+
+print(plotC)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#Cuculus canorus represents the largest proportion of observations in all climate categories (42–48%), 
+#indicating a broad climatic overlap with its hosts. Acrocephalus scirpaceus is particularly common in the Warm Temperate Dry region (56%), 
+#whereas Prunella modularis reaches its highest relative frequency in the Warm Temperate Moist region (37%). 
+#Overall, the results suggest substantial climatic overlap among the three species, but also indicate some differences in their relative representation across climate regions, reflecting partial ecological differentiation.
+
+# =========================
+# Elevation distribution by climate category within each species
+# =========================
+
+# This plot shows elevation distributions separately for each species
+# Within each species panel, the different colors represent climate categories
+# This is useful to compare how each species is distributed across elevation
+# gradients in different climate regions
+
+quartz()
+plotB <- ggplot(df, aes(x = elevation, fill = Climate_Re)) +
+  geom_density(alpha = 0.5, adjust = 3) +
+  labs(
+    title = "Elevation distribution by species",
+    x = "Elevation (m)",
+    y = "Density") +
+  theme_minimal() +
+  facet_wrap(~ species, scales = "free_y")+
+  coord_cartesian(xlim = c(0, 1000)) 
+
+print(plotB)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#This graph compares the elevation distribution of Cuculus canorus and its two host species across different climate regions. 
+#Overall, Acrocephalus scirpaceus is mainly concentrated at low elevations, particularly within moist temperate climates, which is consistent with its association with wetlands, reed beds, and lowland humid habitats. 
+#In contrast, Prunella modularis shows a stronger presence at intermediate elevations and appears more associated with cooler and upland environments, suggesting a greater tolerance for montane conditions. 
+#Cuculus canorus displays a broader elevational distribution than either host species individually, overlapping with both hosts across multiple climatic contexts. 
+#This wider distribution suggests a higher degree of ecological flexibility, likely linked to its brood parasitic lifestyle. Because the cuckoo depends on host species for reproduction, its distribution is expected to follow host availability. 
+#However, the broader elevational range observed here indicates that the cuckoo may exploit different hosts in different environmental contexts, allowing it to occupy a wider ecological niche than each host species separately. 
+#Overall, the graph supports the idea that both climate and elevation contribute to shaping the spatial and ecological distribution of the cuckoo and its hosts.
+
+# =========================
+# PLOT CURRENT VS FUTURE BREEDING SEASON TEMPERATURE
+# =========================
+
+# This scatter plot compares current breeding-season temperature with projected
+# future breeding-season temperature in 2050 for each occurrence point
+
+quartz()
+df <- df %>%
+  mutate(
+    tas_breeding_current_c = as.numeric(tas_breeding_current_c),
+    tas_breeding_future_2050_c = as.numeric(tas_breeding_future_2050_c))
+
+clima <- ggplot(df,
+  aes(x = tas_breeding_current_c, y = tas_breeding_future_2050_c)) +
+  geom_point(color = "steelblue", size = 0.8, alpha = 0.25) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  facet_wrap(~ species) +
+  theme_classic() +
+  labs(
+    title = "Current vs future breeding season temperature",
+    x = "Current breeding season temperature (°C)",
+    y = "Future breeding season temperature in 2050 (°C)")
+
+print(clima)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#Most observations for all three species are located above the 1:1 line, indicating that breeding habitats are projected to experience higher temperatures by 2050. 
+#The similar patterns observed across the three species suggest that both the cuckoo and its hosts will be exposed to comparable climatic warming throughout their current breeding range.
+#However, this figure should be interpreted with caution. The scatter plot compares climatic conditions at occurrence locations rather than predicting future species distributions. 
+#It means that the graph illustrates the climatic changes expected within the currently occupied range, but does not account for potential range shifts, local adaptation, etc.
+
+# ============================================================
+# NDVI DISTRIBUTION ACROSS CLIMATE REGIONS
+# ============================================================
+
+#The violin plot shows the full distribution of NDVI values for each climate region. 
+# NDVI (Normalized Difference Vegetation Index) is used as a proxy for vegetation productivity and greenness.
+
+quartz()
+l2=ggplot(df, aes(x = Climate_Re, y = NDVI, fill = Climate_Re)) +
+  geom_violin(alpha = 0.5, trim = FALSE) +
+  geom_boxplot(width = 0.12, outlier.shape = NA, alpha = 0.8) +
+  labs(
+    title = "NDVI values at occurrence points across climate regions",
+    x = "Climate region",
+    y = "NDVI") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1))
+    
+print(l2)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#The highest median NDVI values are observed in the Cool Temperate Dry, Cool Temperate Moist, and Warm Temperate Moist regions, 
+#suggesting that most occurrence records are associated with relatively productive and well-vegetated environments. 
+#In contrast, the Warm Temperate Dry region shows lower median NDVI values and greater variability, reflecting the presence of more heterogeneous and less densely vegetated habitats. 
+#Overall, the results suggest that the cuckoo and its hosts are mainly associated with areas of moderate to high vegetation cover, although habitat conditions vary among climate regions.
+
+
+# ============================================================
+# FINAL MULTI-PANEL FIGURE
+# ============================================================
+library(cowplot)
+
+# ------------------------------------------------------------
+# Clean panel A: map
+# ------------------------------------------------------------
+
+graphA_final <- graphA +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8),
+    legend.position = "right",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8))
+
+# ------------------------------------------------------------
+# Clean panel B: elevation distribution
+# ------------------------------------------------------------
+
+plotB_final <- ggplot(df_points, aes(x = elevation, fill = Climate_Re)) +
+  geom_density(
+    alpha = 0.6,
+    adjust = 3,
+    color = "black",
+    linewidth = 0.3) +
+  coord_cartesian(xlim = c(0, 1000)) +
+  scale_fill_manual(values = climate_cols, name = "Climate region") +
+  facet_wrap(~ species, scales = "free_y") +
+  labs(
+    title = "B. Elevation distribution across climate regions",
+    x = "Elevation (m)",
+    y = "Density") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 12, face = "bold"),
+    strip.text = element_text(size = 9, face = "italic"),
+    axis.title = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    panel.grid.minor = element_blank())
+
+# ------------------------------------------------------------
+# Clean panel C: species composition across climate regions
+# ------------------------------------------------------------
+
+climate_species <- df_points %>%
+  count(Climate_Re, species) %>%
+  group_by(Climate_Re) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+plotC_final <- ggplot(
+  climate_species,
+  aes(
+    x = Climate_Re,
+    y = species,
+    size = prop,
+    color = species,
+    label = scales::percent(prop, accuracy = 1))) +
+  geom_point(alpha = 0.85) +
+  geom_text(
+    color = "#f9e2c2",
+    fontface = "bold",
+    size = 3) +
+  scale_size_area(max_size = 16) +
+  scale_color_manual(values = species_cols) +
+  labs(
+    title = "C. Species composition across climate regions",
+    x = "Climate region",
+    y = NULL) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 11,face = "bold",hjust = 1),
+    axis.title = element_text(size = 9),
+    axis.text.y = element_text(size = 8),
+    axis.text.x = element_text(angle = 35, hjust = 1, size = 8),
+    panel.grid.minor = element_blank())
+
+figure_finale <- ggdraw() +
+  draw_plot(graphA_final, x = 0.00, y = 0.42, width = 1.00, height = 0.58) +
+  draw_plot(plotB_final,  x = 0.00, y = 0.00, width = 0.65, height = 0.42) +
+  draw_plot(plotC_final,  x = 0.65, y = 0.00, width = 0.35, height = 0.42)
+
+quartz()
+print(figure_finale)

@@ -1,0 +1,53 @@
+#packages:
+library(dplyr)
+library(ggplot2)
+
+# SELECT ENVIRONMENTAL VARIABLES
+env <- dplyr::select(
+  df,
+  elevation,
+  NDVI,
+  tas_breeding_current_c,
+  tas_breeding_future_2050_c) %>%
+  na.omit()
+
+# RUN PCA
+pca_res <- prcomp(env, scale. = TRUE)
+
+# EXTRACT VALUES
+pca_df <- as.data.frame(pca_res$x)
+pca_df$species <- df$species[complete.cases(df[, c(
+  "elevation",
+  "NDVI",
+  "tas_breeding_current_c",
+  "tas_breeding_future_2050_c")])]
+
+# VISUALISE PCA
+quartz()
+
+pca_plot <- ggplot(
+  pca_df,
+  aes(PC1, PC2, color = species)) +
+  geom_point(alpha = 0.4) +
+  theme_minimal() +
+  labs(
+    title = "Environmental niche space of the cuckoo and its hosts")
+
+print(pca_plot)
+
+# INSPECT RESULTS
+print(summary(pca_res))
+print(pca_res$rotation)
+
+# ============================================================
+# PCA ANALYSIS
+# ============================================================
+# The first two principal components explain 57.2% of the total environmental variation (PC1 = 30.3%, PC2 = 26.9%).
+
+# PC1 is mainly associated with elevation and projected futurebreeding-season temperature, whereas PC2 is primarily driven
+# by current breeding-season temperature and NDVI.
+
+# The strong overlap among Cuculus canorus and its two host species indicates that they occupy broadly similar
+# environmental conditions. The cuckoo appears to span a slightly wider environmental space, consistent with its use
+# of multiple host species across different habitats.
+

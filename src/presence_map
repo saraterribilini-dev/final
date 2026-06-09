@@ -1,0 +1,61 @@
+
+#packages:
+library(ggplot2)   
+library(sf)        
+library(dplyr)
+# ============================================================
+# MAP: SPECIES OBSERVATIONS ACROSS CLIMATE REGIONS
+# ============================================================
+quartz()
+graphA <- ggplot() +
+  geom_tile(
+    data = climate_df,
+    aes(x = x, y = y, fill = Climate_Re),
+    alpha = 0.9) +
+  geom_sf(
+    data = Europe,
+    fill = NA,
+    color = "grey20",
+    linewidth = 0.4) +
+  geom_point(
+    data = df_points,
+    aes(x = longitude, y = latitude, color = species, shape = species),
+    size = 1.2,
+    alpha = 0.7) +
+  scale_fill_manual(values = climate_cols, name = "Climate region") +
+  scale_color_manual(values = species_cols, name = "Species") +
+  scale_shape_manual(values = species_shapes, name = "Species") +
+  coord_sf(
+    xlim = c(xmin, xmax),
+    ylim = c(ymin, ymax),
+    expand = FALSE) +
+  labs(
+    title = "A. Species observations across European climate regions",
+    x = "Longitude",
+    y = "Latitude") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    legend.position = "right",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8))
+
+print(graphA)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#The figure suggests that the cuckoo is not found throughout Europe by chance, but is strongly associated with the climatic regions where its host species are present.
+#It is noted that:
+#most sightings of Cuculus canorus are concentrated in the ‘Cool Temperate Moist’ regions
+#this same climatic region also has a significant population of Prunella modularis and Acrocephalus scirpaceus
+#the cuckoo is much less common in drier and warmer regions.
+
+#This is consistent with the ecology of brood parasitism.
+#Furthermore, the two hosts appear to occupy partially distinct niches:
+#Prunella modularis is very common in central-western Europe and in cooler regions,
+#Acrocephalus scirpaceus seems to be more closely associated with wetter regions and lower altitudes.
+
+#The cuckoo appears to overlap with both distributions, suggesting a degree of ecological flexibility and, likely, the ability to utilise multiple hosts.
+
+

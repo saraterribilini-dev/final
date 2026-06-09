@@ -1,0 +1,99 @@
+#packages: 
+library(ggplot2)   
+library(dplyr) 
+# =========================
+# Elevation distribution by climate category within each species
+# =========================
+
+# This plot shows elevation distributions separately for each species
+# Within each species panel, the different colors represent climate categories
+# This is useful to compare how each species is distributed across elevation
+# gradients in different climate regions
+
+quartz()
+plotB <- ggplot(df, aes(x = elevation, fill = Climate_Re)) +
+  geom_density(alpha = 0.5, adjust = 3) +
+  labs(
+    title = "Elevation distribution by species",
+    x = "Elevation (m)",
+    y = "Density") +
+  theme_minimal() +
+  facet_wrap(~ species, scales = "free_y")+
+  coord_cartesian(xlim = c(0, 1000)) 
+
+print(plotB)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#This graph compares the elevation distribution of Cuculus canorus and its two host species across different climate regions. 
+#Overall, Acrocephalus scirpaceus is mainly concentrated at low elevations, particularly within moist temperate climates, which is consistent with its association with wetlands, reed beds, and lowland humid habitats. 
+#In contrast, Prunella modularis shows a stronger presence at intermediate elevations and appears more associated with cooler and upland environments, suggesting a greater tolerance for montane conditions. 
+#Cuculus canorus displays a broader elevational distribution than either host species individually, overlapping with both hosts across multiple climatic contexts. 
+#This wider distribution suggests a higher degree of ecological flexibility, likely linked to its brood parasitic lifestyle. Because the cuckoo depends on host species for reproduction, its distribution is expected to follow host availability. 
+#However, the broader elevational range observed here indicates that the cuckoo may exploit different hosts in different environmental contexts, allowing it to occupy a wider ecological niche than each host species separately. 
+#Overall, the graph supports the idea that both climate and elevation contribute to shaping the spatial and ecological distribution of the cuckoo and its hosts.
+
+# =========================
+# PLOT CURRENT VS FUTURE BREEDING SEASON TEMPERATURE
+# =========================
+
+# This scatter plot compares current breeding-season temperature with projected
+# future breeding-season temperature in 2050 for each occurrence point
+
+quartz()
+df <- df %>%
+  mutate(
+    tas_breeding_current_c = as.numeric(tas_breeding_current_c),
+    tas_breeding_future_2050_c = as.numeric(tas_breeding_future_2050_c))
+
+clima <- ggplot(df,
+  aes(x = tas_breeding_current_c, y = tas_breeding_future_2050_c)) +
+  geom_point(color = "steelblue", size = 0.8, alpha = 0.25) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  facet_wrap(~ species) +
+  theme_classic() +
+  labs(
+    title = "Current vs future breeding season temperature",
+    x = "Current breeding season temperature (°C)",
+    y = "Future breeding season temperature in 2050 (°C)")
+
+print(clima)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#Most observations for all three species are located above the 1:1 line, indicating that breeding habitats are projected to experience higher temperatures by 2050. 
+#The similar patterns observed across the three species suggest that both the cuckoo and its hosts will be exposed to comparable climatic warming throughout their current breeding range.
+#However, this figure should be interpreted with caution. The scatter plot compares climatic conditions at occurrence locations rather than predicting future species distributions. 
+#It means that the graph illustrates the climatic changes expected within the currently occupied range, but does not account for potential range shifts, local adaptation, etc.
+
+# ============================================================
+# NDVI DISTRIBUTION ACROSS CLIMATE REGIONS
+# ============================================================
+
+#The violin plot shows the full distribution of NDVI values for each climate region. 
+# NDVI (Normalized Difference Vegetation Index) is used as a proxy for vegetation productivity and greenness.
+
+quartz()
+l2=ggplot(df, aes(x = Climate_Re, y = NDVI, fill = Climate_Re)) +
+  geom_violin(alpha = 0.5, trim = FALSE) +
+  geom_boxplot(width = 0.12, outlier.shape = NA, alpha = 0.8) +
+  labs(
+    title = "NDVI values at occurrence points across climate regions",
+    x = "Climate region",
+    y = "NDVI") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1))
+    
+print(l2)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+#The highest median NDVI values are observed in the Cool Temperate Dry, Cool Temperate Moist, and Warm Temperate Moist regions, 
+#suggesting that most occurrence records are associated with relatively productive and well-vegetated environments. 
+#In contrast, the Warm Temperate Dry region shows lower median NDVI values and greater variability, reflecting the presence of more heterogeneous and less densely vegetated habitats. 
+#Overall, the results suggest that the cuckoo and its hosts are mainly associated with areas of moderate to high vegetation cover, although habitat conditions vary among climate regions.

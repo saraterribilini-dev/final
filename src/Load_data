@@ -1,0 +1,115 @@
+# my github : https://github.com/saraterribilini-dev/final.git
+
+#My research question:
+#"Under which ecological and climatic conditions does the cuckoo overlap with its hosts?"
+
+# The analyses investigate:
+# - Spatial overlap between Cuculus canorus and two potential host species
+# - Climatic overlap across European climate regions
+# - Relative species composition within each climate region
+# - Elevational and vegetation-related environmental patterns
+# - Potential environmental constraints on the brood parasite distribution
+
+# ============================================================
+# Presence overlap map
+# ============================================================
+#This graph directly visualises whether the cuckoo occurs in the same regions as the two host species.
+
+#  Background: climate region from WTE raster metadata
+#  Points: species observations
+
+# Load packages
+library(dplyr)
+library(sf)
+library(raster)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggplot2)
+
+sf_use_s2(FALSE)
+
+# LOAD OCCURRENCE AND ENVIRONMENTAL DATA
+
+df <- read.csv(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/github/final/data/matrix_full_eco_elev_clim_sat_clean.csv",
+  stringsAsFactors = FALSE)
+
+# DEFINE EUROPEAN EXTENT
+
+xmin <- -22
+xmax <- 57
+ymin <- 30
+ymax <- 70
+europe_extent <- extent(xmin, xmax, ymin, ymax)
+
+# LOAD EUROPEAN BORDERS
+
+Europe <- ne_countries(
+  continent = "Europe",
+  scale = "medium",
+  returnclass = "sf")
+
+# LOAD AND PREPARE CLIMATE RASTER
+
+# The raster contains numerical values that are linked to climate regions
+# using the metadata table.
+
+climate_raster <- raster(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/ecosystem_raster_europe.tif")
+
+#reduce the raster size because is too heavy to create a df for the whole Europe
+climate_raster_small <- climate_raster %>%
+  crop(europe_extent) %>%
+  raster::sampleRegular(size = 800000, asRaster = TRUE)
+#check
+#plot(climate_raster_small)
+
+climate_df <- as.data.frame(
+  climate_raster_small,
+  xy = TRUE,
+  na.rm = TRUE)
+
+colnames(climate_df) <- c("x", "y", "climate_id")
+
+# LINK RASTER VALUES TO CLIMATE REGIONS
+
+metadata_climate <- read.delim(
+  "/Users/saraterribilini/Desktop/UNINE/2st semester/Biodiversity data analysis/Vstudio/my project/data/WorldEcosystem.metadata.tsv")
+
+climate_lookup <- metadata_climate %>%
+  dplyr::select(Value, Climate_Re) %>%
+  distinct() %>%
+  filter(!is.na(Value), !is.na(Climate_Re))
+
+climate_df <- climate_df %>%
+  mutate(climate_id = as.numeric(climate_id)) %>%
+  left_join(climate_lookup, by = c("climate_id" = "Value")) %>%
+  filter(!is.na(Climate_Re))
+
+# PREPARE SPECIES OBSERVATIONS
+
+#remove all the NA value
+df_points <- df %>%
+  filter(
+    !is.na(longitude),
+    !is.na(latitude),
+    !is.na(species),
+    !is.na(Climate_Re))
+
+# DEFINE COLORS AND SYMBOLS
+
+climate_cols <- c(
+  "Cool Temperate Dry" = "#f4d961",
+  "Cool Temperate Moist" = "#2a9d8f",
+  "Warm Temperate Dry" = "#e76f51",
+  "Warm Temperate Moist" = "#457b9d")
+
+species_cols <- c(
+  "Cuculus canorus" = "black",
+  "Prunella modularis" = "red",
+  "Acrocephalus scirpaceus" = "#00d5ff")
+
+species_shapes <- c(
+  "Cuculus canorus" = 16,
+  "Prunella modularis" = 17,
+  "Acrocephalus scirpaceus" = 15)

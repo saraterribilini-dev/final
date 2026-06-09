@@ -1,0 +1,97 @@
+
+#packages:
+library(sf)        
+library(dplyr)    
+library(ggplot2)
+# ============================================================
+# GRID-BASED SPATIAL OVERLAP ANALYSIS
+# ============================================================
+# The study area is divided into 1° × 1° grid cells
+# For each cell, species presence is recorded and overlap
+# categories are assigned to identify potential areas of cuckoo-host interaction
+
+# Convert occurrence records to spatial points
+points_sf <- st_as_sf(
+  df_points,
+  coords = c("longitude", "latitude"),
+  crs = 4326)
+
+# Create a regular grid covering Europe
+grid_sf <- st_make_grid(
+  st_as_sfc(
+    st_bbox(
+      c(xmin = xmin, xmax = xmax,ymin = ymin,ymax = ymax),
+      crs = st_crs(4326)
+    )),
+  cellsize = 1 ) %>%
+  st_sf(grid_id = seq_along(.), geometry = .)
+
+# Assign observations to grid cells
+cell_species <- st_join(points_sf, grid_sf) %>%
+  st_drop_geometry() %>%
+  group_by(grid_id) %>%
+  summarise(
+    cuckoo   = any(species == "Cuculus canorus"),
+    prunella = any(species == "Prunella modularis"),
+    acro     = any(species == "Acrocephalus scirpaceus")) %>%
+  mutate(
+    overlap_type = case_when(
+      cuckoo & prunella & acro      ~ "Cuckoo + both hosts",
+      cuckoo & prunella             ~ "Cuckoo + Prunella",
+      cuckoo & acro                 ~ "Cuckoo + Acrocephalus",
+      cuckoo & !prunella & !acro    ~ "Only cuckoo",
+      !cuckoo & (prunella | acro)   ~ "Only hosts",
+      TRUE                          ~ "Other"))
+
+# Merge overlap information with the spatial grid
+grid_plot <- left_join(grid_sf, cell_species, by = "grid_id")
+
+# ============================================================
+# VISUALISE SPATIAL OVERLAP
+# ============================================================
+quartz()
+overlap_cols <- c(
+  "Only cuckoo" = "black",
+  "Only hosts" = "lightblue",
+  "Cuckoo + Prunella" = "orange",
+  "Cuckoo + Acrocephalus" = "purple",
+  "Cuckoo + both hosts" = "red")
+
+plot_overlap <- ggplot() +
+  geom_sf(
+    data = grid_plot,
+    aes(fill = overlap_type),
+    color = NA) +
+  geom_sf(
+    data = Europe,
+    fill = NA,
+    color = "grey20",
+    linewidth = 0.3) +
+  scale_fill_manual(
+    values = overlap_cols,
+    na.translate = FALSE) +
+  coord_sf(
+    xlim = c(xmin, xmax),
+    ylim = c(ymin, ymax)) +
+  labs(
+    title = "Spatial overlap between Cuculus canorus and host species",
+    fill = "Overlap type") +
+  theme_classic()
+
+print(plot_overlap)
+
+# ============================================================
+# GRAPH ANALYISIS
+# ============================================================
+
+#Here, you are no longer simply showing points of presence, but quantifying spatial co-occurrence.
+#Unlike a simple point map, each grid cell in this analysis does not represent the exact number of observations, but rather the combination of species present in that area. 
+#This makes it possible to distinguish between cells where only the cuckoo was observed, cells where only the host species were present, and cells where the cuckoo co-occurred with one or both host species. 
+#The red cells, where Cuculus canorus co-occurs with both Prunella modularis and Acrocephalus scirpaceus, can be interpreted as potential hotspots of parasite–host interaction. 
+#These areas are mainly concentrated in western and central Europe, suggesting that environmental conditions and host availability in these regions may be particularly favourable for the cuckoo.
+#The orange and purple cells indicate areas where the cuckoo overlaps with only Prunella modularis or only Acrocephalus scirpaceus, respectively. 
+#This may suggest that the cuckoo exploits different host species in different ecological contexts, or that local host availability varies along geographical and environmental gradients. 
+#The black cells, where only the cuckoo is present, do not necessarily indicate a true absence of hosts. They may reflect the presence of other host species not included in this analysis, differences in sampling effort, or the greater mobility and detectability of Cuculus canorus. 
+# In contrast, the light blue cells, where only the host species are present, show that host presence alone is not sufficient to determine cuckoo presence. Other factors, such as climate, habitat structure, host density, breeding phenology, and migratory constraints, may also influence the distribution of the cuckoo.
+#Overall, this grid-based overlap map suggests that the distribution of Cuculus canorus is at least partly associated with the spatial distribution of its host species, but that this relationship is not perfect. 
+#This is consistent with the ecology of an obligate brood parasite: the cuckoo depends on suitable hosts for reproduction, but its realised distribution is likely shaped by a combination of host availability, environmental conditions, and landscape structure.
